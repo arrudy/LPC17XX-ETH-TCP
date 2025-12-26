@@ -1,0 +1,4 @@
+RENAME sys_arch_mbox_fetch sys_arch_mbox_fetch_old
+RENAME sys_mbox_fetch sys_mbox_fetch_old
+RENAME sys_arch_protect sys_arch_protect_old
+RENAME sys_arch_unprotect sys_arch_unprotect_old

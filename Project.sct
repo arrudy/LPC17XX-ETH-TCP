@@ -1,0 +1,61 @@
+; **************************************************************************
+; *** Optimized Scatter File for LPC1768 - RTX, lwIP & UART              ***
+; **************************************************************************
+
+LR_IROM1 0x00000000 0x00080000  {    ; Load region (Flash 512kB)
+  ER_IROM1 0x00000000 0x00080000  {  ; Execution region (Flash)
+   *.o (RESET, +First)
+   *(InRoot$$Sections)
+   .ANY (+RO)
+   .ANY (+XO)
+  }
+
+  ; --- Main Local SRAM (32kB Total) ---
+  ; We use the first 31kB for standard variables.
+  ; This is the fastest RAM (CPU Local Bus).
+  RW_IRAM1 0x10000000 0x00007800  {
+    rtx_lib.o (+RW +ZI)
+    rtx_kernel.o (+RW +ZI)
+    RTX_CM3.lib (+RW +ZI)
+    os_systick.o (+RW +ZI)
+   .ANY (+RW +ZI)
+  }
+
+  ; --- Main Stack (1kB) ---
+  ; Located at the very top of Main RAM (0x10008000).
+  ; Grows downwards by 0x400 bytes.
+  ARM_LIB_STACK 0x10008000 EMPTY -0x00000800 {
+  }
+
+  ; --- AHB Bank 0 (16kB Total) - Variable Spillover & Heap ---
+  ; We split this bank: 12kB for variables, 4kB for Heap.
+  
+  ; General Spillover Region (12kB)
+  ; If variables don't fit in Main RAM, the linker puts them here.
+  RW_IRAM2 0x2007C000 0x00003000 {
+    .ANY (+RW +ZI)
+  }
+
+  ; Heap (4kB) - Used by malloc/free
+  ; Placed at the very end of Bank 0.
+  ARM_LIB_HEAP 0x2007F000 EMPTY 0x00001000 {
+  }
+  
+  ; --- AHB Bank 1 (16kB Total) - Peripheral Buffers ---
+  ; Base address: 0x20080000. Shared by Ethernet and UART.
+  
+  ; 1. Ethernet Control/Descriptors (Must be at start of Bank 1)
+  RW_EMAC_CTRL 0x20080000 0x00000100 {
+    emac_lpc17xx.o (+RW)             
+    emac_lpc17xx.o (.bss*)           
+  }
+
+  ; 2. Buffers (Ethernet + UART)
+  ; Starts at offset 0x100, aligned to 8 bytes for DMA efficiency.
+  RW_AHB_BUFFERS 0x20080100 ALIGN 8 0x00003F00 {
+    ; Ethernet Buffers (Heavy traffic, DMA)
+    emac_lpc17xx.o (.bss.rx_buf)
+    emac_lpc17xx.o (.bss.tx_buf)
+    slab_alloc.o (.bss.pool_2k)
+  }
+}

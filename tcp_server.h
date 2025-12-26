@@ -1,0 +1,16 @@
+#ifndef TCP_SERVER_H
+#define TCP_SERVER_H
+
+#include "lwip/tcp.h"
+#include "lwip/tcpip.h"
+
+void tcp_mode_server(void);
+int8_t tcp_mode_client(ip_addr_t *target_ip, uint16_t port);
+
+//standalone, creates own thread
+void initialize_tcp_srv(osMessageQueueId_t i_q);
+
+//from the thread context
+void initialize_tcp_srv_threadctx(osMessageQueueId_t i_q);
+
+#endif
