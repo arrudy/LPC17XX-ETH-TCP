@@ -3,9 +3,9 @@ import threading
 from usecases import func_runner
 import sys
 
-HOST = '127.0.0.1'  # Standardowy adres loopback (localhost)
-PORT = 65432        # Port do nasłuchiwania (nieużywany port > 1023)
-BUFFER_SIZE = 2048  # Wielkość bufora do odbierania danych
+HOST = '127.0.0.1'  
+PORT = 5000        
+BUFFER_SIZE = 2048
 MAX_CONNECTIONS = 5
 
 clients = {}

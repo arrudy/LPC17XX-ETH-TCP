@@ -1,7 +1,7 @@
 import socket
 
 HOST = '127.0.0.1'  # Adres serwera
-PORT = 65432        # Port serwera
+PORT = 5000        # Port serwera
 
 def run_tcp_client():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
