@@ -7,7 +7,7 @@ void pack_header(uint8_t* buffer, uint16_t length, uint16_t func_code, uint8_t f
     buffer[3] = flags;
 }
 
-int unpack_header(uint8_t * buffer, uint16_t * len, uint16_t * func_code, uint8_t * flags)
+int unpack_header(const uint8_t * buffer, uint16_t * len, uint16_t * func_code, uint8_t * flags)
 {
   if(!buffer || !(len || func_code || flags ) ) return -1;
   

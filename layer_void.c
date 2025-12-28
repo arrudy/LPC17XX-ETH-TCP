@@ -16,19 +16,15 @@ static osMessageQueueId_t out_queue;
 */
 int process_request_void(Command * cmd_in)
 {
+  char cmd [] = "debug send unknown_command";
   
   Command cmd_out = { 
     .interface = cmd_in->interface,
-    .data_ptr = serialize_command_alloc("debug send unknown_command", NULL),
+    .data_ptr = serialize_command_alloc(cmd, NULL),
   };
   
   osStatus_t result;
-  result = osMessageQueuePut(out_queue, NULL,NULL, osWaitForever);
-  if(osErrorResource == result)
-  {
-    osDelay(100);
-    result = osMessageQueuePut(out_queue, NULL,NULL, osWaitForever);
-  }
+  result = osMessageQueuePut(out_queue, &cmd_out,NULL, osWaitForever);
   
   return 1;
 }
@@ -66,9 +62,9 @@ osStatus_t init_pipeline(osMessageQueueId_t in_q, osMessageQueueId_t out_q)
 
     // Fully initialize thread attributes
     const osThreadAttr_t pipe_attr = {
-        .name       = "PipelineThread",
+        .name       = "pipeline_thread",
         .priority   = osPriorityNormal,
-        .stack_size = 1024
+        .stack_size = 512
     };
 
     // Create thread

@@ -22,8 +22,9 @@ osStatus_t initialize_uart_int(osMessageQueueId_t in_q, osMessageQueueId_t out_q
 
 
 osStatus_t uart_printn(const char *buf);
-void uart_printn_raw(const char * buf);
+
 
 void uart2_putc_sys(int c);
+void uart2_puts_sys(const char * buf);
 
 #endif

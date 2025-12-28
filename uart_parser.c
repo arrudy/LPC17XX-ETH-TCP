@@ -1,5 +1,5 @@
 #include "uart_parser.h"
-
+#include "command.h"
 
 
 
@@ -51,10 +51,15 @@ int parse_command(const uint8_t * p, char* buffer, size_t max_len) {
     // Byte 0: Len[11:4]
     // Byte 1: Len[3:0] | Func[11:8]
     // Byte 2: Func[7:0]
-    uint16_t length    = (uint16_t)((p[0] << 4) | ((p[1] >> 4) & 0x0F));
-    uint16_t func_code = (uint16_t)(((p[1] & 0x0F) << 8) | p[2]);
+    uint16_t length    = 0;//(uint16_t)((p[0] << 4) | ((p[1] >> 4) & 0x0F));
+    uint16_t func_code = 0;//(uint16_t)(((p[1] & 0x0F) << 8) | p[2]);
+  
+    unpack_header(p, &length, &func_code, NULL);
     uint8_t  category  = (uint8_t)((func_code >> 8) & 0x0F);
     uint8_t  sub_cmd   = (uint8_t)(func_code & 0xFF);
+  
+
+  
 
     const uint8_t* payload = &p[4];
     size_t payload_len = (length > 4) ? (length - 4) : 0;
@@ -78,7 +83,7 @@ int parse_command(const uint8_t * p, char* buffer, size_t max_len) {
         }
         else {
             safe_cat(buffer, "SYS NOTIF: Code ", max_len);
-            itoa(sub_cmd, num_buf);
+            itoa(sub_cmd, num_buf, 16);
             safe_cat(buffer, num_buf, max_len);
         }
     }
@@ -92,16 +97,16 @@ int parse_command(const uint8_t * p, char* buffer, size_t max_len) {
              // Assume payload contains a 4-byte code, otherwise print sub_cmd
              if (payload_len >= 4) {
                  uint32_t code = unpack_uint32(payload);
-                 itoa((int)code, num_buf);
+                 itoa((int)code, num_buf, 16);
                  safe_cat(buffer, num_buf, max_len);
              } else {
-                 itoa(sub_cmd, num_buf);
+                 itoa(sub_cmd, num_buf, 16);
                  safe_cat(buffer, num_buf, max_len);
              }
         }
         else {
             safe_cat(buffer, "SIM NOTIF: Code ", max_len);
-            itoa(sub_cmd, num_buf);
+            itoa(sub_cmd, num_buf, 16);
             safe_cat(buffer, num_buf, max_len);
         }
     }

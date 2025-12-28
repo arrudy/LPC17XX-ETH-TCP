@@ -91,6 +91,16 @@ void uart2_putc_sys(int c)
     LPC_UART2->THR = c;
 }
 
+void uart2_puts_sys(const char * buf)
+{
+  for(int i = 0; i < MAX_PRINTN; ++i)
+  {
+    if(buf[i] == '\0') return;
+    uart2_putc_sys(buf[i]);
+  }
+}
+
+
 
 /*
 int fputc(int ch, FILE *f)

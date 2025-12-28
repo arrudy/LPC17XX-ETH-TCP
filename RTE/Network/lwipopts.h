@@ -42,7 +42,7 @@
 #define MEMP_MEM_MALLOC                 0
 #define MEMP_MEM_INIT                   0
 #define MEM_ALIGNMENT                   4
-#define MEM_SIZE                        (12*1024)
+#define MEM_SIZE                        (6*1024)//(12*1024)
 #define MEMP_OVERFLOW_CHECK             1
 #define MEMP_SANITY_CHECK               0
 #define MEM_OVERFLOW_CHECK              0
@@ -63,13 +63,13 @@
 #define MEMP_NUM_ARP_QUEUE              4
 #define MEMP_NUM_IGMP_GROUP             8
 #define MEMP_NUM_NETBUF                 2
-#define MEMP_NUM_NETCONN                4
+#define MEMP_NUM_NETCONN                0//4
 #define MEMP_NUM_SELECT_CB              4
 #define MEMP_NUM_TCPIP_MSG_API          8
 #define MEMP_NUM_TCPIP_MSG_INPKT        8
 #define MEMP_NUM_NETDB                  1
 #define MEMP_NUM_LOCALHOSTLIST          1
-#define PBUF_POOL_SIZE                  5
+#define PBUF_POOL_SIZE                  7
 
 /*
    ---------------------------------
