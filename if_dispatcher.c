@@ -63,9 +63,11 @@ osStatus_t tick_dispatcher(osMessageQueueId_t out_q)
       
       //push to interface
     }
+    
+    slab_free(cmd.data_ptr);
   }
   
-  slab_free(cmd.data_ptr);
+  
   return osOK;
 }
 

@@ -7,6 +7,10 @@
 #include "uart_handle.h"
 #include "tcp_server.h"
 
+
+static osMessageQueueId_t in_queue;
+static osMessageQueueId_t out_queue;
+
 static char ip [] = "255.255.255.255";
 
 
@@ -47,8 +51,20 @@ int process_request_cmd(Command * cmd)
       tcp_mode_server();
     break;
     case SYS_RAW_SEND:
-     tcp_srv_send_data_defer(cmd->data_ptr);
-    break;
+    {
+      Command cmd_out = {.interface = cmd->interface, .data_ptr = slab_malloc(len)};
+      if(!cmd_out.data_ptr)
+      {
+        uart2_puts_sys("CMD_LYR: alloc failure.");
+        return 1;
+      }
+      pack_header(cmd_out.data_ptr,len & 0xFFF,func & 0xFFF,flags & 0xFF);
+      strcpy((char*)(cmd_out.data_ptr+4), (const char*) (cmd->data_ptr+4));
+      
+      osMessageQueuePut(out_queue, &cmd_out, NULL, osWaitForever);
+     //tcp_srv_send_data_defer(cmd->data_ptr); //fallback
+    }
+   break;
   }
   
   
