@@ -20,7 +20,7 @@ int process_request_sim(Command * cmd)
   uint8_t flags;
   
   unpack_header(cmd->data_ptr, &len, &func, &flags);
-  if(func != CAT_SIM && func != CAT_SIM_API) return 0; 
+  if((  func != CAT_SIM) && func != CAT_SIM_API) return 0; 
   
 	return 1;
 }

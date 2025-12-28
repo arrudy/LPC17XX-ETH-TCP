@@ -74,12 +74,18 @@ int parse_command(const uint8_t * p, char* buffer, size_t max_len) {
 
     // 4. Process Notifications
     if (category == CAT_SYS_NOTIF) { // 0xF
-        if (sub_cmd == NOTIF_SYS_UNKNOWN) {
+        if (sub_cmd == SYS_NOTIF_UNKNOWN) {
             safe_cat(buffer, "SYS ERR: Unknown Command", max_len);
         }
-        else if (sub_cmd == NOTIF_SYS_DEBUG) {
+        else if (sub_cmd == SYS_NOTIF_DEBUG) {
             safe_cat(buffer, "SYS DBG: ", max_len);
             safe_cat_payload(buffer, payload, payload_len, max_len);
+        }
+        else if(sub_cmd == SYS_NOTIF_FORBID) {
+          safe_cat(buffer, "SYS ERR: Forbidden Command", max_len);
+        }
+        else if(sub_cmd == SYS_NOTIF_OK) {
+          safe_cat(buffer, "SYS NOTIF: Success", max_len);
         }
         else {
             safe_cat(buffer, "SYS NOTIF: Code ", max_len);

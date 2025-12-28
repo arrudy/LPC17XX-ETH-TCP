@@ -172,7 +172,7 @@ static err_t tcp_recv_cb(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t 
 
           
             Command cmd_out = { 
-              .interface = CMD_ETH,
+              .interface = IF_ETH,
               .data_ptr = slab_data
             };
             

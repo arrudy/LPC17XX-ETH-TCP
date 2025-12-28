@@ -16,9 +16,9 @@ static osMessageQueueId_t out_queue;
 */
 int process_request_void(Command * cmd_in)
 {
-  char cmd [] = "debug send unknown_command";
+  char cmd [] =  "";//"neighbor send unknown_command";
   
-  Command cmd_out = { 
+  Command cmd_out = {
     .interface = cmd_in->interface,
     .data_ptr = serialize_command_alloc(cmd, NULL),
   };

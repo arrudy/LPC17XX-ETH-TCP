@@ -18,7 +18,7 @@ __NO_RETURN static void dispatcher_worker(void *argument)
 
     osMessageQueueGet(out_queue, &cmd, NULL, osWaitForever);
     
-    if(cmd.interface & CMD_UART)
+    if(cmd.interface & IF_UART)
     {
       char buffer[128];
       
@@ -27,7 +27,7 @@ __NO_RETURN static void dispatcher_worker(void *argument)
       if(result != osOK)
         uart2_puts_sys("!ERR command serialize fail\n\r");
     }
-    if(cmd.interface & CMD_ETH)
+    if(cmd.interface & IF_ETH)
     {
       tcp_srv_send_data(cmd.data_ptr);
       
@@ -48,7 +48,7 @@ osStatus_t tick_dispatcher(osMessageQueueId_t out_q)
     osStatus_t result = osMessageQueueGet(out_q, &cmd, NULL, 0);
     if(result != osOK) return result;
     
-    if(cmd.interface & CMD_UART)
+    if(cmd.interface & IF_UART)
     {
       char buffer[128];
       
@@ -57,7 +57,7 @@ osStatus_t tick_dispatcher(osMessageQueueId_t out_q)
       if(result != osOK)
         uart2_puts_sys("!ERR command serialize fail\n\r");
     }
-    if(cmd.interface & CMD_ETH)
+    if(cmd.interface & IF_ETH)
     {
       tcp_srv_send_data_defer(cmd.data_ptr);
       

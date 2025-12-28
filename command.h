@@ -4,12 +4,12 @@
 #include <stdint.h>
 
 //source definitions
-#define CMD_INTERNAL    0x01
-#define CMD_UART        0x02
-#define CMD_ETH         0x04
-#define CMD_P2P         0x08
-#define CMD_BROAD_INNER 0x7F // nearest neighbor broadcast; UART user, P2P and server
-#define CMD_BROAD_OUTER 0xFF // every single node in the web, including UART
+#define IF_INTERNAL    0x01
+#define IF_UART        0x02
+#define IF_ETH         0x04
+//#define IF_P2P         0x08
+//#define IF_BROAD_INNER 0x7F // nearest neighbor broadcast; UART user, P2P and server
+//#define IF_BROAD_OUTER 0xFF // every single node in the web, including UART
 
 
 // --- Command Definitions (Same as before) ---
@@ -30,9 +30,19 @@
 */
 
 
+// System commands
+#define SYS_PING     0x01 //payload: str(ip)
+#define SYS_CONN     0x02 //payload: str(ip)
+#define SYS_DISCONN  0x03 //payload: None
+#define SYS_RAW_SEND 0x04 //payload: str(any)
+
+
+
 // System Notifications (0xF)
-#define NOTIF_SYS_UNKNOWN 0x01
-#define NOTIF_SYS_DEBUG   0x02 // String Payload
+#define SYS_NOTIF_UNKNOWN 0x01 //payload: None
+#define SYS_NOTIF_DEBUG   0x02 //payload: str(any)
+#define SYS_NOTIF_FORBID  0x03 //payload: None
+#define SYS_NOTIF_OK      0x04 //payload: None
 
 // Simulation Notifications (0xE)
 #define NOTIF_SIM_ALERT   0x01 // Code Payload
