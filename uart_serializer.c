@@ -17,15 +17,15 @@ typedef struct {
 
 
 static const CommandEntry CMD_TABLE[] = {
-		{ "send", "debug", NULL,         (CAT_SYSTEM<<8)|0x01,  { ARG_STR, ARG_END } },
-    { "neighbor", "show", NULL,      (CAT_SYSTEM<<8)|0x02,  { ARG_END } },
-    { "neighbor", "ping", NULL,      (CAT_SYSTEM<<8)|0x03,  { ARG_IP, ARG_END } },
-    { "food", "eat", "neighbor",     (CAT_SIM_API<<8)|0x01, { ARG_INT, ARG_END } },
-    { "self", "state", NULL,         (CAT_SIM<<8)|0x01,     { ARG_END } },
-    { "self", "sleep", NULL,         (CAT_SIM<<8)|0x02,     { ARG_INT, ARG_END } },
-    { "food", "list", NULL,          (CAT_SIM<<8)|0x03,     { ARG_END } },
-    { "food", "eat",  NULL,          (CAT_SIM<<8)|0x04,     { ARG_INT, ARG_END } },
-    { "food", "ask",  "neighbor",    (CAT_SIM<<8)|0x05,     { ARG_INT, ARG_STR, ARG_END } },
+    { "neighbor", "ping", NULL,      (CAT_SYSTEM<<8)|SYS_PING,     { ARG_IP, ARG_END } },
+    { "neighbor", "connect", NULL,   (CAT_SYSTEM<<8)|SYS_CONN,     { ARG_IP, ARG_END } },
+    { "neighbor", "disconnect", NULL,(CAT_SYSTEM<<8)|SYS_DISCONN,  { ARG_END } },
+    { "neighbor", "send", NULL,      (CAT_SYSTEM<<8)|SYS_RAW_SEND, { ARG_STR, ARG_END } },
+    //{ "self", "state", NULL,         (CAT_SIM<<8)|0x01,            { ARG_END } },
+    //{ "self", "sleep", NULL,         (CAT_SIM<<8)|0x02,            { ARG_INT, ARG_END } },
+    //{ "food", "list", NULL,          (CAT_SIM<<8)|0x03,            { ARG_END } },
+    //{ "food", "eat",  NULL,          (CAT_SIM<<8)|0x04,            { ARG_INT, ARG_END } },
+    //{ "food", "ask",  "neighbor",    (CAT_SIM<<8)|0x05,            { ARG_INT, ARG_STR, ARG_END } },
     { NULL, NULL, NULL, 0, {0} }
 };
 

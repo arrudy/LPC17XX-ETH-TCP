@@ -14,6 +14,8 @@
 #include "uart_handle.h"
 #include "command.h"
 #include "layer_void.h"
+#include "slab_alloc.h"
+#include "if_dispatcher.h"
 
 //#pragma import(__use_no_semihosting)
 
@@ -58,7 +60,7 @@ uint32_t osRtxErrorNotify(uint32_t code, void * object_id)
     {
       const char * text = "Stack overflow\n\r";
       uart_printn(text);
-      printf("%s",text);
+      uart2_puts_sys(text);
       //USARTdrv->Send(text, strlen(text));
       //return 0;
       break;
@@ -67,7 +69,7 @@ uint32_t osRtxErrorNotify(uint32_t code, void * object_id)
 		{
 			const char * text = "ISR queue full\n\r";
       uart_printn(text);
-      printf("%s",text);
+      uart2_puts_sys(text);
 			//USARTdrv->Send(text, strlen(text));
 			//return 0;
       break;
@@ -76,7 +78,7 @@ uint32_t osRtxErrorNotify(uint32_t code, void * object_id)
     {
       const char * text = "Unknown RTX5 error\n\r";
       uart_printn(text);
-      printf("%s",text);
+      uart2_puts_sys(text);
       break;
     }
 	}
@@ -102,16 +104,22 @@ __NO_RETURN void app_main(void *argument)
   //malloc(10);
   uint32_t state = 0;
   
+  uint32_t tick = 0;
+  uint32_t DiodeTimer = 0;
   
   
 	int led_state = 0;
 	for(;;)
 	{
 		
-		led_state = !led_state; //? 0 : 1;
-		if(led_state) LED_On(3);
-		else LED_Off(3);
-    
+    if(!tick || tick - DiodeTimer > 100)
+    {
+      led_state = !led_state; //? 0 : 1;
+      if(led_state) LED_On(3);
+      else LED_Off(3);
+        
+      DiodeTimer = tick;
+    }
     
     switch(state)
     {
@@ -127,14 +135,18 @@ __NO_RETURN void app_main(void *argument)
       case 1:
       {
         (void)initialize_uart_int(in_q, out_q);
-        //(void)init_pipeline(in_q, out_q);
+        (void)init_pipeline(in_q, out_q);
+        //(void)init_if_dispatcher(out_q); //we ran out of memory :(
         state = RUNNING;
         osDelay(1000);
       }
       break;
       default:
-        tcpip_callback(ping_send_req_cb, "192.168.1.1");
-        osDelay(2000);
+        //tcpip_callback(ping_send_req_cb, "192.168.1.1");
+      
+        tick_dispatcher(out_q);
+        osDelay(10);
+        tick+=1;
       break;
     }
     
@@ -184,19 +196,20 @@ int main(void)
 	
 	(void)osKernelInitialize();
   
+   slab_init();
     in_q = osMessageQueueNew(10, sizeof(Command), NULL);
 	  out_q = osMessageQueueNew(10, sizeof(Command), NULL);
 	
   
   
-  (void)initialize_eth_int();
+  (void)initialize_eth_int(in_q, out_q);
   
   
   
 	osThreadAttr_t main_attr = {
         .name = "main_thread",
         .priority = osPriorityNormal,
-        .stack_size = 256,
+        .stack_size = 512,
     };
 	
     

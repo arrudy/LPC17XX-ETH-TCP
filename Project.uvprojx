@@ -500,6 +500,11 @@
               <FileType>1</FileType>
               <FilePath>.\command.c</FilePath>
             </File>
+            <File>
+              <FileName>if_dispatcher.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\if_dispatcher.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

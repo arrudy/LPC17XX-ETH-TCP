@@ -7,6 +7,9 @@
 // --- GLOBAL STATE ---
 static osMessageQueueId_t g_in_q = NULL;
 
+osEventFlagsId_t send_flag;
+static volatile int8_t volatile_send_status = 0;
+
 static struct tcp_pcb *current_pcb = NULL;     // The active data connection (Client or Server link)
 static struct tcp_pcb *server_pcb = NULL;      // The Listener (Server mode only)
 static struct pbuf *rx_backlog = NULL;         // RX reassembly chain
@@ -167,8 +170,14 @@ static err_t tcp_recv_cb(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t 
         if (slab_data != NULL) {
             pbuf_copy_partial(rx_backlog, slab_data, packet_len, 0);
 
+          
+            Command cmd_out = { 
+              .interface = IF_ETH,
+              .data_ptr = slab_data
+            };
+            
             // Push to Queue
-            if (osMessageQueuePut(g_in_q, &slab_data, 0, 0) != osOK) {
+            if (osMessageQueuePut(g_in_q, &cmd_out, 0, 0) != osOK) {
                 slab_free(slab_data); // Queue full
             }
         }
@@ -235,9 +244,9 @@ int8_t tcp_srv_send_data(void *data)
     // 1. Get Length
     uint16_t packet_len = 0;
     uint16_t f_code = 0;
-    uint8_t flags = 0;
+    //uint8_t flags = 0;
     
-    unpack_header((uint8_t*)data, &packet_len, &f_code, &flags);
+    unpack_header((uint8_t*)data, &packet_len, &f_code, NULL);
     if (packet_len == 0) packet_len = 4;
 
     // 2. Check Buffer Space
@@ -257,6 +266,94 @@ int8_t tcp_srv_send_data(void *data)
     
     return (err == ERR_OK) ? 0 : -3;
 }
+
+
+
+
+/**
+ * 1. The Callback Function
+ * This runs INSIDE the LwIP thread (tcpip_thread).
+ * The Stack size here is large (as defined in lwipopts.h).
+ * NO LOCKS are needed here because we are already in the core thread.
+ */
+static void tcp_srv_send_callback(void *ctx)
+{
+    void *data = ctx; // Context is simply the data pointer
+    volatile_send_status = 0; // Default to OK
+
+    // Safety check: Is global PCB valid?
+    if (current_pcb == NULL) {
+        volatile_send_status = -1; // No connection
+        osEventFlagsSet(send_flag, 0x1);
+        return;
+    }
+
+    // 1. Get Length
+    uint16_t packet_len = 0;
+    uint16_t f_code = 0;
+    uint8_t flags = 0;
+    
+    // Unpack header from the raw data pointer
+    unpack_header((uint8_t*)data, &packet_len, &f_code, &flags);
+    if (packet_len == 0) packet_len = 4;
+
+    // 2. Check Buffer Space
+    if (tcp_sndbuf(current_pcb) < packet_len) {
+        volatile_send_status = -2; // Buffer full
+        osEventFlagsSet(send_flag, 0x1);
+        return;
+    }
+
+    // 3. Write (Copy Mode)
+    // Note: TCP_WRITE_FLAG_COPY is crucial here because 'data' resides 
+    // in the other thread's scope (or slab) and we need LwIP to copy it 
+    // to its own memory before we release the semaphore/flag.
+    err_t err = tcp_write(current_pcb, data, packet_len, TCP_WRITE_FLAG_COPY);
+
+    if (err == ERR_OK) {
+        tcp_output(current_pcb);
+        volatile_send_status = 0;
+    } else {
+        volatile_send_status = -3; // Write failed (e.g. ERR_MEM)
+    }
+
+    // 4. Signal completion (Success or Error)
+    osEventFlagsSet(send_flag, 0x1);
+}
+
+/**
+ * 2. The User-Facing Function
+ * Call this from your User Thread (with the small stack).
+ * It delegates the work to LwIP and sleeps until finished.
+ */
+int8_t tcp_srv_send_data_defer(void *data)
+{
+    // 1. Clear the flag to ensure we don't catch a stale event
+    osEventFlagsClear(send_flag, 0x1);
+
+    // 2. Schedule the callback
+    // tcpip_callback is thread-safe and puts the message in the mbox
+    err_t err = tcpip_callback(tcp_srv_send_callback, data);
+
+    if (err != ERR_OK) {
+        return -4; // Failed to schedule callback (Queue full?)
+    }
+
+    // 3. Block and Wait
+    // This puts the user thread to sleep, saving stack and CPU.
+    // We wait forever (osWaitForever) or you could set a timeout (e.g., 1000ms)
+    uint32_t flags = osEventFlagsWait(send_flag, 0x1, osFlagsWaitAny, osWaitForever);
+
+    if (flags & 0x80000000U) {
+        return -5; // OS Error (Timeout or Resource invalid)
+    }
+
+    // 4. Return the status set by the callback
+    return volatile_send_status;
+}
+
+
+
 
 // ============================================================================
 // 4. PUBLIC STATE CONTROL FUNCTIONS
@@ -334,7 +431,7 @@ int8_t tcp_mode_client(ip_addr_t *target_ip, uint16_t port)
 // ============================================================================
 
 const osThreadAttr_t tcp_init_attr = {
-    .name = "TCP_Init_Task",
+    .name = "tcp_init_thread",
     .stack_size = 1024,
     .priority = (osPriority_t) osPriorityNormal,
 };
@@ -351,6 +448,7 @@ static void tcp_init_thread(void *arg)
 void initialize_tcp_srv(osMessageQueueId_t i_q)
 {
     g_in_q = i_q;
+    send_flag = osEventFlagsNew(NULL);
     osThreadNew(tcp_init_thread, NULL, &tcp_init_attr);
 }
 
@@ -358,6 +456,8 @@ void initialize_tcp_srv(osMessageQueueId_t i_q)
 void initialize_tcp_srv_threadctx(osMessageQueueId_t i_q)
 {
     g_in_q = i_q;
+  
+   send_flag = osEventFlagsNew(NULL);
     tcp_mode_server();
 }
 

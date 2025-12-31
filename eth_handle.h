@@ -27,7 +27,7 @@ extern osEventFlagsId_t eth_init_flags;
 
 void ping_send_req_cb(void * ip_addr_str);
 
-void initialize_eth_int(void);
+osStatus_t initialize_eth_int(osMessageQueueId_t in_q, osMessageQueueId_t out_q);
 
 void initialize_eth_int_fallback(void);
 

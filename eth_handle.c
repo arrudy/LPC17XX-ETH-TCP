@@ -31,7 +31,7 @@
 
 #include <stdlib.h>
 
-#define ETH_DEB(x) printf("%s", (x))
+#define ETH_DEB(x) uart2_puts_sys((x)); //printf("%s", (x))
 
 
 static struct raw_pcb *icmp_pcb;
@@ -43,9 +43,8 @@ extern ARM_DRIVER_ETH_PHY Driver_ETH_PHY0;
 static struct netif gnetif;
 
 
-static osMessageQueueId_t in_q; //received data is pushed here
-
-
+static osMessageQueueId_t in_queue; //received data is pushed here
+static osMessageQueueId_t out_queue;
 
 
 
@@ -56,15 +55,19 @@ static u8_t ping_recv(void *arg, struct raw_pcb *pcb,
   LWIP_UNUSED_ARG(pcb);
 
   struct icmp_echo_hdr *iecho;
+  char numbuf[12];
 
   if (p->len >= sizeof(struct icmp_echo_hdr)) {
       iecho = (struct icmp_echo_hdr*)p->payload;
 
       // Check if this is a Reply (Type 0) to a ping WE sent
       if (iecho->type == ICMP_ER) {
-          printf("Ping reply from %s, seq=%d\n",
-                 ipaddr_ntoa(addr),
-                 lwip_ntohs(iecho->seqno));
+          ETH_DEB("Ping reply from ");
+          ETH_DEB(ipaddr_ntoa(addr));
+          ETH_DEB(", seq=");
+          itoa(lwip_ntohs(iecho->seqno), numbuf, 10);
+          ETH_DEB(numbuf);
+          ETH_DEB("\n");
           
           /* We handled the Reply. Free buffer and return 1 (eaten) */
           pbuf_free(p);
@@ -101,20 +104,22 @@ void ping_send_req_cb(void *arg)
    * If init was skipped, we can technically create it here, 
    * though it's better to rely on ping_raw_init_cb. */
   if (!icmp_pcb) {
-        printf("Error: icmp_pcb not initialized. Call ping_raw_init_cb first.\n");
+        ETH_DEB("Error: icmp_pcb not initialized. Call ping_raw_init_cb first.\n");
         return;
   }
 
   /* Parse the IP string argument */
   if (!ipaddr_aton(ip_str, &target_ip)) {
-        printf("Error: Invalid IP address string: %s\n", ip_str);
+        ETH_DEB("Error: Invalid IP address string: ");
+        ETH_DEB(ip_str);
+        ETH_DEB("\n");
         return;
-  }
+    }
 
   /* Allocate memory for the ICMP packet */
   p = pbuf_alloc(PBUF_IP, sizeof(struct icmp_echo_hdr), PBUF_RAM);
   if (!p) {
-        printf("Error: Failed to allocate pbuf\n");
+        ETH_DEB("Error: Failed to allocate pbuf\n");
         return;
   }
 
@@ -129,14 +134,22 @@ void ping_send_req_cb(void *arg)
   iecho->chksum = 0;
   iecho->chksum = inet_chksum(iecho, sizeof(*iecho));
 
+  char numbuf[16];
   /* Send the packet */
   err_t err = raw_sendto(icmp_pcb, p, &target_ip);
   if (err != ERR_OK) {
-      printf("Failed to send: %d\n", err);
-  }
-  else{
-  printf("Ping sent to %s, seq=%d\n", ip_str, ping_seq_num);
-  }
+    ETH_DEB("Failed to send: ");
+    itoa(err, numbuf, 16);  // convert error code to string
+    ETH_DEB(numbuf);
+    ETH_DEB("\n");
+} else {
+    ETH_DEB("Ping sent to ");
+    ETH_DEB(ip_str);
+    ETH_DEB(", seq=");
+    itoa(ping_seq_num, numbuf, 10); // convert seq number to string
+    ETH_DEB(numbuf);
+    ETH_DEB("\n");
+}
   /* 
    * CRITICAL: Free the pbuf. 
    * raw_sendto does not consume the pbuf reference. 
@@ -183,13 +196,13 @@ static void ping_raw_init_cb(void *arg)
   LWIP_UNUSED_ARG(arg);
 
   if (icmp_pcb != NULL) {
-      printf("Ping PCB already initialized.\n");
+      ETH_DEB("Ping PCB already initialized.\n");
       return;
   }
 
   icmp_pcb = raw_new(IP_PROTO_ICMP);
   if (!icmp_pcb) {
-      printf("Ping raw_new failed\n");
+      ETH_DEB("Ping raw_new failed\n");
       return;
   }
 
@@ -199,7 +212,7 @@ static void ping_raw_init_cb(void *arg)
   /* Register the receive callback (from our previous discussion) */
   raw_recv(icmp_pcb, ping_recv, NULL);
 
-  printf("Ping PCB initialized and listening.\n");
+  ETH_DEB("Ping PCB initialized and listening.\n");
   
   /* Optional: Signal your RTOS that init is done */
   osEventFlagsSet(eth_init_flags, PING_INIT_FLAG);
@@ -360,13 +373,12 @@ __NO_RETURN static void eth_init_worker(void *argument)
 
   netif_set_up(&gnetif);
   
+  UNLOCK_TCPIP_CORE(); 
+  
+
   
   
-  
-  
-  
-  
-  UNLOCK_TCPIP_CORE();
+
   
   {
     ETH_DEB("NETIF OK\n\r");
@@ -447,6 +459,8 @@ __NO_RETURN static void eth_init_worker(void *argument)
     }
   
   
+    
+    
   //
   //
   // Ping Setup
@@ -459,10 +473,20 @@ __NO_RETURN static void eth_init_worker(void *argument)
   // Run the PCB creation in the lwIP tcpip_thread
   err_t res = tcpip_callback(ping_raw_init_cb, NULL);
   osEventFlagsWait(eth_init_flags, PING_INIT_FLAG,osFlagsWaitAll, osWaitForever);
+  
+
+    
+    
+    
+  //
+  //
+  // TCP server setup
+  //
+  //
     
     
         
- initialize_tcp_srv_threadctx(in_q);
+ initialize_tcp_srv_threadctx(in_queue);
     
  osEventFlagsSet(eth_init_flags, ETH_RDY);
  osThreadExit();
@@ -476,15 +500,25 @@ __NO_RETURN static void eth_init_worker(void *argument)
 
 
 
-void initialize_eth_int(void)
+osStatus_t initialize_eth_int(osMessageQueueId_t in_q, osMessageQueueId_t out_q)
 {
+   if (in_q == NULL || out_q == NULL) {
+    return osErrorParameter;
+  }
+  
+  in_queue = in_q;
+	out_queue = out_q;
+  
   	osThreadAttr_t eth_attr = {
         .name = "eth_init_thread",
         .priority = osPriorityNormal,
-        .stack_size = 3072,
+        .stack_size = 2560,
     };
-	
-	(void)osThreadNew(eth_init_worker,NULL,&eth_attr);
+    
+	if (osThreadNew(eth_init_worker,NULL,&eth_attr) == NULL)
+    return osErrorResource;
+    
+  return osOK;
 }
 
 
