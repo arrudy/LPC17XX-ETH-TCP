@@ -63,6 +63,15 @@ class MyApplication:
                     case "exit":
                         self.running = False
                         print("Zamykanie aplikacji...")
+                    case "help":
+                        print("""
+send    Send message to device.
+        send <client_id> <func_code> <flags> <data>
+disconnect  Disconnect device.
+        disconnect <id> | "all"
+list    List connected devices.
+exit    Stop server.
+""")
                     case _:
                         print("Nieznana komenda.")
 
