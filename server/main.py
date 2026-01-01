@@ -3,12 +3,47 @@ import sys
 from transport import TransportManager
 from app import MyApplication
 
-CONFIG = [
-    # Typ Transportu   Podtyp (Logic)    Adres/Port      Baud    Etykieta
-    ("TCP",            None,             "0.0.0.0",      5000,   "ETHERNET"),
-    ("SERIAL",         "GATEWAY",        "/dev/ttyUSB0", 115200, "RADIO_802.15.4"),
-    ("SERIAL",         "DIRECT",         "/dev/ttyS0",   9600,   "UART_WIRED"),
-]
+
+import sys
+import asyncio
+# ... twoje importy ...
+
+# 1. Definiujemy konfiguracje dla różnych systemów
+PLATFORM_CONFIGS = {
+    # Konfiguracja dla LINUXA
+    "linux": [
+        ("TCP",    None,      "0.0.0.0",      5000,   "ETHERNET"),
+        ("SERIAL", "GATEWAY", "/dev/ttyUSB0", 115200, "RADIO_802.15.4"),
+        ("SERIAL", "DIRECT",  "/dev/ttyS0",   9600,   "UART_WIRED"),
+    ],
+    
+    # Konfiguracja dla WINDOWSA
+    "win32": [
+        ("TCP",    None,      "0.0.0.0",      5000,   "ETHERNET"),
+        ("SERIAL", "GATEWAY", "COM3",         115200, "RADIO_802.15.4"), # Ustaw swój numer COM!
+        ("SERIAL", "DIRECT",  "COM1",         9600,   "UART_WIRED"),
+    ],
+    
+    # Opcjonalnie dla MAC OS
+    "darwin": [
+        ("TCP",    None,      "0.0.0.0",      5000,   "ETHERNET"),
+        ("SERIAL", "GATEWAY", "/dev/cu.usbserial-xxx", 115200, "RADIO"),
+        ("SERIAL", "DIRECT",  "/dev/cu.usbmodem-xxx",  9600,   "UART"),
+    ]
+}
+
+current_platform = sys.platform
+
+
+CONFIG = PLATFORM_CONFIGS.get(current_platform, PLATFORM_CONFIGS["linux"])
+
+
+# CONFIG = [
+#     # Typ Transportu   Podtyp (Logic)    Adres/Port      Baud    Etykieta
+#     ("TCP",            None,             "0.0.0.0",      5000,   "ETHERNET"),
+#     ("SERIAL",         "GATEWAY",        "/dev/ttyUSB0", 115200, "RADIO_802.15.4"),
+#     ("SERIAL",         "DIRECT",         "/dev/ttyS0",   9600,   "UART_WIRED"),
+# ]
 
 async def main():
     print("--- START SYSTEMU ---")
@@ -77,8 +112,6 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        if sys.platform == 'win32':
-            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         asyncio.run(main())
     except KeyboardInterrupt:
         pass

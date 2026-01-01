@@ -5,8 +5,6 @@ from typing import Dict, Callable, Optional, Awaitable
 from dataclasses import dataclass
 from common import Device
 
-# --- IMPLEMENTACJE URZĄDZEŃ ---
-
 @dataclass
 class TcpDevice(Device):
     async def send_bytes(self, data: bytes):
@@ -16,11 +14,10 @@ class TcpDevice(Device):
 
     async def close(self):
         self.connected = False
-        # 1. NAJWAŻNIEJSZE: Zabijamy czytanie natychmiast
+
         if self._read_task:
             self._read_task.cancel()
         
-        # 2. Zamykamy socket z timeoutem
         try:
             self._writer.close()
             await asyncio.wait_for(self._writer.wait_closed(), timeout=0.5)
@@ -41,7 +38,7 @@ class UartDevice(Device):
         
         try:
             self._writer.close()
-            # Serial nie zawsze obsługuje wait_closed poprawnie, więc nie czekamy
+    
         except: pass
 
 @dataclass
@@ -58,9 +55,7 @@ class RadioDevice(Device):
 
     async def close(self):
         self.connected = False
-        # RadioDevice nie ma własnego taska (korzysta z Gatewaya), więc tu nic nie robimy
-
-# --- MANAGER ---
+    
 
 class TransportManager:
     def __init__(self):
@@ -68,13 +63,13 @@ class TransportManager:
         self._id_counter = 0
         self._lock = asyncio.Lock()
         self._running = True
-        self.gateway_tasks = [] # Taski globalne (Radio Gateway)
+        self.gateway_tasks = [] 
         
         self.on_device_connected = None
         self.on_device_disconnected = None
         self.on_data_received = None
     
-    # --- METODY STARTOWE (Zapisujemy taski!) ---
+
 
     async def start_tcp(self, host: str, port: int):
         async def cb(reader, writer):
@@ -91,7 +86,6 @@ class TransportManager:
             
             if self.on_device_connected: await self.on_device_connected(dev)
             
-            # ZAPISUJEMY TASKA W OBIEKCIE DEVICE
             dev._read_task = asyncio.create_task(self._generic_loop(dev, reader))
 
         server = await asyncio.start_server(cb, host, port)
@@ -115,7 +109,6 @@ class TransportManager:
 
             if self.on_device_connected: await self.on_device_connected(dev)
             
-            # ZAPISUJEMY TASKA
             dev._read_task = asyncio.create_task(self._generic_loop(dev, reader))
             
         except Exception as e:
@@ -127,13 +120,10 @@ class TransportManager:
             print(f"✅ [Transport] {label} Gateway na {port}")
             gw_lock = asyncio.Lock()
             
-            # Gateway task trafia do osobnej listy
             task = asyncio.create_task(self._radio_loop(reader, writer, gw_lock, label))
             self.gateway_tasks.append(task)
         except Exception as e:
             print(f"❌ [Transport] Błąd RADIO {port}: {e}")
-
-    # --- PĘTLE ODCZYTU (Obsługa anulowania) ---
 
     async def _generic_loop(self, device: Device, reader: asyncio.StreamReader):
         try:
@@ -147,10 +137,8 @@ class TransportManager:
                     await self.on_data_received(device, header + payload)
 
         except asyncio.CancelledError:
-            # To jest normalne wyjście przy shutdown/disconnect!
             pass
         except (asyncio.IncompleteReadError, Exception):
-            # Błędy połączenia
             pass
         finally:
             await self._handle_disconnect(device)
@@ -171,7 +159,7 @@ class TransportManager:
         except Exception:
             pass
 
-    # --- ROZŁĄCZANIE I SHUTDOWN (Bezpieczne) ---
+    
 
     async def disconnect(self, id: int):
         device = None
