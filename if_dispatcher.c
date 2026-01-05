@@ -50,7 +50,8 @@ osStatus_t tick_dispatcher(osMessageQueueId_t out_q)
     
     if(cmd.interface & IF_UART)
     {
-      char buffer[128];
+      static char buffer[128];
+      buffer[0] = '\0';
       
       parse_command(cmd.data_ptr, buffer, 128);
       result = uart_printn(buffer);
@@ -59,8 +60,11 @@ osStatus_t tick_dispatcher(osMessageQueueId_t out_q)
     }
     if(cmd.interface & IF_ETH)
     {
-      tcp_srv_send_data_defer(cmd.data_ptr);
-      
+      int8_t status = tcp_srv_send_data_defer(cmd.data_ptr);
+      if(status == -1)
+        uart2_puts_sys("!ERR no TCP connection\n\r");
+      else if (status < 0)
+        uart2_puts_sys("!ERR unknown TCP error\n\r");
       //push to interface
     }
     

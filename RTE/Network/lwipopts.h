@@ -69,7 +69,7 @@
 #define MEMP_NUM_TCPIP_MSG_INPKT        8
 #define MEMP_NUM_NETDB                  1
 #define MEMP_NUM_LOCALHOSTLIST          1
-#define PBUF_POOL_SIZE                  7
+#define PBUF_POOL_SIZE                  20
 
 /*
    ---------------------------------
@@ -165,7 +165,7 @@
 #define TCP_QUEUE_OOSEQ                 0
 #define LWIP_TCP_SACK_OUT               0
 #define LWIP_TCP_MAX_SACK_NUM           4
-#define TCP_MSS                         1460
+#define TCP_MSS                         458//1460
 #define TCP_OOSEQ_MAX_BYTES             0
 #define TCP_OOSEQ_MAX_PBUFS             0
 #define TCP_LISTEN_BACKLOG              1

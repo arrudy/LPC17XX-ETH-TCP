@@ -7,8 +7,14 @@
 // --- GLOBAL STATE ---
 static osMessageQueueId_t g_in_q = NULL;
 
+typedef struct {
+    ip_addr_t ip;
+    uint16_t port;
+} client_connect_ctx_t;
+
 osEventFlagsId_t send_flag;
 static volatile int8_t volatile_send_status = 0;
+static volatile int8_t volatile_tcp_conn = 0;
 
 static struct tcp_pcb *current_pcb = NULL;     // The active data connection (Client or Server link)
 static struct tcp_pcb *server_pcb = NULL;      // The Listener (Server mode only)
@@ -228,6 +234,28 @@ static err_t tcp_connected_cb(void *arg, struct tcp_pcb *tpcb, err_t err)
     return ERR_OK;
 }
 
+static void tcp_mode_server_cb_internal(void *ctx)
+{
+    (void)ctx; // No arguments needed
+
+    // 1. Abort current connection if any
+    if (current_pcb != NULL) {
+        // Since we are in the LwIP thread, tcp_abort is safe here.
+        // It uses the LwIP thread's large stack.
+        tcp_abort(current_pcb);
+        current_pcb = NULL;
+        if (rx_backlog) { pbuf_free(rx_backlog); rx_backlog = NULL; }
+    }
+
+    // 2. Start Listening (if not already)
+    // Reuse your existing raw helper
+    _start_listener_raw();
+
+    // 3. Signal Complete
+    // We reuse the same flag group, using bit 0x4 for "Server Mode Set"
+    osEventFlagsSet(send_flag, 0x4);
+}
+
 // ============================================================================
 // 3. PUBLIC TX FUNCTION (Async / Dispatcher Called)
 // ============================================================================
@@ -265,6 +293,29 @@ int8_t tcp_srv_send_data(void *data)
     UNLOCK_TCPIP_CORE();
     
     return (err == ERR_OK) ? 0 : -3;
+}
+
+int8_t tcp_mode_server_defer(void)
+{
+    // 1. Clear flag
+    osEventFlagsClear(send_flag, 0x4);
+
+    // 2. Schedule Callback
+    // We pass NULL because we don't need arguments
+    err_t err = tcpip_callback(tcp_mode_server_cb_internal, NULL);
+
+    if (err != ERR_OK) {
+        return -4; // Queue full
+    }
+
+    // 3. Block and Wait
+    uint32_t flags = osEventFlagsWait(send_flag, 0x4, osFlagsWaitAny, osWaitForever);
+
+    if (flags & 0x80000000U) {
+        return -5; // Error
+    }
+
+    return 0; // Success
 }
 
 
@@ -355,6 +406,61 @@ int8_t tcp_srv_send_data_defer(void *data)
 
 
 
+static void client_connect_cb_internal(void *ctx)
+{
+    client_connect_ctx_t *args = (client_connect_ctx_t*)ctx;
+    volatile_tcp_conn = 0; // Assume Success initially
+
+    // 1. Cleanup Old Server/Connection
+    if (server_pcb != NULL) {
+        tcp_close(server_pcb);
+        server_pcb = NULL;
+    }
+    
+    if (current_pcb != NULL) {
+        tcp_abort(current_pcb);
+        current_pcb = NULL;
+        if (rx_backlog) { pbuf_free(rx_backlog); rx_backlog = NULL; }
+    }
+
+    // 2. Create New PCB
+    struct tcp_pcb *pcb = tcp_new();
+    if (pcb == NULL) {
+        // Critical Memory Error
+        volatile_tcp_conn = -1; 
+        _start_listener_raw(); // Revert to listener so we aren't dead
+        goto done;
+    }
+
+    // 3. Setup Callbacks
+    tcp_bind(pcb, IP_ADDR_ANY, 0); 
+    tcp_arg(pcb, NULL);
+    tcp_recv(pcb, tcp_recv_cb);
+    tcp_err(pcb, tcp_err_cb);
+
+    // 4. Initiate Connection
+    // Note: This only sends the SYN packet. It does not wait for the ACK.
+    // If SYN is sent successfully, we return 0. 
+    // The actual connection status comes later in tcp_connected_cb.
+    err_t err = tcp_connect(pcb, &args->ip, args->port, tcp_connected_cb);
+    
+    if (err != ERR_OK) {
+        volatile_tcp_conn = -2; // Routing failed or Out of Memory
+        _start_listener_raw(); // Revert
+    }
+
+done:
+
+    // 6. Signal User Thread
+    // We reuse 0x1, assuming the user doesn't try to connect and send 
+    // simultaneously from different threads.
+    osEventFlagsSet(send_flag, 0x2);
+}
+
+
+
+
+
 // ============================================================================
 // 4. PUBLIC STATE CONTROL FUNCTIONS
 // ============================================================================
@@ -384,7 +490,7 @@ void tcp_mode_server(void)
  * Switch to Client Mode (Connect to Target).
  * Stops listening and attempts connection.
  */
-int8_t tcp_mode_client(ip_addr_t *target_ip, uint16_t port)
+/* int8_t tcp_mode_client(ip_addr_t *target_ip, uint16_t port) //heavy, only usable in tcpip ctx
 {
     LOCK_TCPIP_CORE();
 
@@ -424,7 +530,43 @@ int8_t tcp_mode_client(ip_addr_t *target_ip, uint16_t port)
 
     UNLOCK_TCPIP_CORE();
     return 0; // Request Started
+}*/
+
+
+int8_t tcp_mode_client_defer(ip_addr_t *target_ip, uint16_t port)
+{
+    // 1. Clear flag to avoid stale events
+    osEventFlagsClear(send_flag, 0x2);
+
+    // 2. Allocate arguments (Using Slab to save Stack)
+    client_connect_ctx_t args;
+
+    // Copy data
+    args.ip = *target_ip;
+    args.port = port;
+
+    // 3. Schedule Callback
+    err_t err = tcpip_callback(client_connect_cb_internal, &args);
+    if (err != ERR_OK) {
+        return -4; // Return immediately, do not wait!
+    }
+
+
+    // 4. Block and Wait
+    // The LwIP thread will process the logic and wake us up.
+    uint32_t flags = osEventFlagsWait(send_flag, 0x2, osFlagsWaitAny, osWaitForever);
+
+    if (flags & 0x80000000U) {
+        return -5; // OS Timeout/Error
+    }
+
+    // 5. Return Result
+    return volatile_tcp_conn;
 }
+
+
+
+
 
 // ============================================================================
 // 5. INITIALIZATION & THREAD

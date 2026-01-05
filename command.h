@@ -15,7 +15,8 @@
 // --- Command Definitions (Same as before) ---
 #define CAT_SYSTEM    0x1
 #define CAT_SIM       0x2
-#define CAT_SIM_API   0x3
+#define CAT_SYS_API   0x3
+#define CAT_SIM_API   0x4
 #define CAT_SIM_NOTIF 0xE
 #define CAT_SYS_NOTIF 0xF
 
@@ -30,13 +31,16 @@
 */
 
 
-// System commands
+// System commands (0x1)
 #define SYS_PING     0x01 //payload: str(ip)
 #define SYS_CONN     0x02 //payload: str(ip)
 #define SYS_DISCONN  0x03 //payload: None
-#define SYS_RAW_SEND 0x04 //payload: str(any)
+#define SYS_RAW_SEND 0x04 //payload: str(any), uart->eth
 
 
+// System API commands (0x3)
+#define SYS_ETH_MSG  0x01 //payload: str(any), eth->uart
+#define SYS_LOOP     0x02 //payload: str(any), eth->eth
 
 // System Notifications (0xF)
 #define SYS_NOTIF_UNKNOWN 0x01 //payload: None

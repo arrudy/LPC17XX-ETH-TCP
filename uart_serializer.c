@@ -1,7 +1,7 @@
 #include "uart_serializer.h"
 #include "command.h"
 #include "string.h"
-
+#include <ctype.h>
 
 
 typedef enum { ARG_END = 0, ARG_INT, ARG_STR, ARG_IP } ArgType;
@@ -46,6 +46,60 @@ static void pack_uint32(uint8_t* buf, uint32_t val) {
 
 
 
+int tokenize_command(char* cmd, char* tokens[], int max_tokens) {
+    int count = 0;
+    char* ptr = cmd;
+
+    while (*ptr != '\0' && count < max_tokens) {
+        // 1. Skip leading spaces
+        while (isspace((unsigned char)*ptr)) {
+            ptr++;
+        }
+        
+        if (*ptr == '\0') break; // End of string found
+
+        // 2. Identify start of token
+        char* start = ptr;
+        char quote_char = 0;
+
+        if (*ptr == '"' || *ptr == '\'') {
+            quote_char = *ptr;
+            start = ptr + 1; // Start the token actual content AFTER the quote
+            ptr++;           // Move inside the quote
+        }
+
+        // 3. Scan for end of token
+        int closed = 0;
+        while (*ptr != '\0') {
+            if (quote_char) {
+                // We are inside a quote, look for matching closing quote
+                if (*ptr == quote_char) {
+                    *ptr = '\0'; // Terminate string here
+                    ptr++;       // Move past the closing quote
+                    closed = 1;
+                    break;
+                }
+            } else {
+                // Standard word, look for space
+                if (isspace((unsigned char)*ptr)) {
+                    *ptr = '\0'; // Terminate string here
+                    ptr++;       // Move past the space
+                    break;
+                }
+            }
+            ptr++;
+        }
+        
+        // 4. Store the token
+        tokens[count++] = start;
+    }
+
+    return count;
+}
+
+
+
+
 
 
 uint8_t* serialize_command_alloc(char* input_cmd, size_t* out_len) {
@@ -57,13 +111,13 @@ uint8_t* serialize_command_alloc(char* input_cmd, size_t* out_len) {
 //    cmd_copy[sizeof(cmd_copy)-1] = '\0';
 
     char* tokens[MAX_TOKENS];
-    int token_count = 0;
+    int token_count = tokenize_command(input_cmd, tokens, MAX_TOKENS); //0;
     char* ctx;
-    char* t = strtok_r(input_cmd, " ", &ctx);
-    while(t && token_count < MAX_TOKENS) {
+    //char* t = strtok_r(input_cmd, " ", &ctx);
+    /*while(t && token_count < MAX_TOKENS) {
         tokens[token_count++] = t;
         t = strtok_r(NULL, " ", &ctx);
-    }
+    }*/
 
     if (token_count < 2) goto return_unknown;
 
