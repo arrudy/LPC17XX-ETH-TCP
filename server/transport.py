@@ -158,7 +158,12 @@ class TransportManager:
             pass
         except Exception:
             pass
-
+    
+    async def send_to_device(self, device_id: int, data: bytes):
+        async with self._lock:
+            device = self.devices.get(device_id)
+        if device:
+            await device.send_bytes(data)
     
 
     async def disconnect(self, id: int):
@@ -179,6 +184,8 @@ class TransportManager:
             active_devices = list(self.devices.values())
         for dev in active_devices:
             await dev.close()
+    
+    
     
     async def shutdown(self):
         print("🛑 [Transport] Wymuszanie zatrzymania...")
@@ -237,3 +244,5 @@ class TransportManager:
             self.devices[radio_id] = dev
         if self.on_device_connected: await self.on_device_connected(dev)
         return dev
+    
+    

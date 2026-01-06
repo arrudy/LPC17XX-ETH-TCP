@@ -14,21 +14,21 @@ PLATFORM_CONFIGS = {
     "linux": [
         ("TCP",    None,      "0.0.0.0",      5000,   "ETHERNET"),
         ("SERIAL", "GATEWAY", "/dev/ttyUSB0", 115200, "RADIO_802.15.4"),
-        ("SERIAL", "DIRECT",  "/dev/ttyS0",   9600,   "UART_WIRED"),
+        ("SERIAL", "DIRECT",  "/dev/ttyS0",   115200,   "UART_WIRED"),
     ],
     
     # Konfiguracja dla WINDOWSA
     "win32": [
         ("TCP",    None,      "0.0.0.0",      5000,   "ETHERNET"),
         ("SERIAL", "GATEWAY", "COM3",         115200, "RADIO_802.15.4"), # Ustaw swój numer COM!
-        ("SERIAL", "DIRECT",  "COM1",         9600,   "UART_WIRED"),
+        ("SERIAL", "DIRECT",  "COM7",         115200,   "UART_WIRED"),
     ],
     
     # Opcjonalnie dla MAC OS
     "darwin": [
         ("TCP",    None,      "0.0.0.0",      5000,   "ETHERNET"),
         ("SERIAL", "GATEWAY", "/dev/cu.usbserial-xxx", 115200, "RADIO"),
-        ("SERIAL", "DIRECT",  "/dev/cu.usbmodem-xxx",  9600,   "UART"),
+        ("SERIAL", "DIRECT",  "/dev/cu.usbmodem-xxx",  115200,   "UART"),
     ]
 }
 

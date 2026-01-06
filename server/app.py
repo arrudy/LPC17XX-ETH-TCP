@@ -58,6 +58,10 @@ class MyApplication:
                 
                     case "send":
                         await self._handle_send(parts)
+                    case "connect":
+                        print("Funkcja connect nie jest zaimplementowana.")
+                    case "hi":
+                        await self._handle_hi()
                     case "disconnect":
                         await self._handle_disconnect(parts)
                     case "exit":
@@ -94,7 +98,7 @@ exit    Stop server.
                 print(f"{dev.id:<4} {dev.type:<15} {dev.address:<20} {status}")
 
     async def _handle_send(self, parts):
-        if len(parts) < 4:
+        if len(parts) < 3:
             print("Użycie: send <id> <func_code> <message>")
             return
 
@@ -147,3 +151,33 @@ exit    Stop server.
         except Exception as e:
             print(f"Błąd zamknęcia połączenia: {e}")
         
+    # async def _handle_connect(self, parts):
+    #     if len(parts) <2:
+    #         print("Użycie: connect <ip> | <address> | \"all\"")
+    #         return
+    #     try:
+    #         if parts[1] == "all":
+    #             await self.tm.connect_all()
+    #             return
+    #         target_id = int(parts[1])
+                        
+    #         if not await self.tm.connect(target_id):
+    #             print(f"Błąd: Nie ma urządzenia o ID {target_id}")
+    #             return
+    #         print(f"Połączono urządzenie (ID: {target_id})")
+
+    #     except ValueError:
+    #         print("Błąd: ID musi być liczbą.")
+    #     except Exception as e:
+    #         print(f"Błąd zamknęcia połączenia: {e}")
+        
+    async def _handle_hi(self):
+        print("Wysyłam HI do wszystkich urządzeń...")
+
+        for device in self.tm.devices.values():
+            try:
+                packet = protocol.build_packet(0x302, 0, "HI")
+                await device.send_bytes(packet)
+                print(f"✅ Wysłano HI do {device.type} (ID: {device.id})")
+            except Exception as e:
+                print(f"Błąd wysyłania HI do {device.id}: {e}")
