@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
+#include "slab_alloc.h"
 
 //source definitions
 #define IF_INTERNAL    0x01
