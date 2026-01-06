@@ -65,7 +65,7 @@ int parse_command(const uint8_t * p, char* buffer, size_t max_len) {
     size_t payload_len = (length > 4) ? (length - 4) : 0;
 
     // 3. Filter Categories (Only 0xE and 0xF)
-    if (category != CAT_SIM_NOTIF && category != CAT_SYS_NOTIF) {
+    if (category != CAT_SIM_NOTIF && category != CAT_SYS_NOTIF && category !=  CAT_SYS_API) {
         return -2; // Ignored category
     }
 

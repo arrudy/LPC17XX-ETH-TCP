@@ -38,7 +38,7 @@ void UART_signal_event(uint32_t event)
 	}
 }
 
-#define MAX_PRINTN 2046
+#define MAX_PRINTN 2044
 
 
 osStatus_t uart_printn(const char *buf)

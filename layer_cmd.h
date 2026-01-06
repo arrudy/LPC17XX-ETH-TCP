@@ -49,10 +49,16 @@ int process_request_cmd(Command * cmd)
             return 1;
         }
         
-        tcp_mode_client_defer(&target_ip, 5000);
+        if(!tcp_mode_client_defer(&target_ip, 5000))
+          uart_printn("OK\n\r");
+        else
+          uart_printn("!ERR\n\r");
       break;
       case SYS_DISCONN:
-        tcp_mode_server_defer();
+        if(!tcp_mode_server_defer())
+          uart_printn("OK\n\r");
+        else
+          uart_printn("!ERR\n\r");
       break;
       case SYS_RAW_SEND:
       {
