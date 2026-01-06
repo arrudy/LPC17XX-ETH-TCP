@@ -169,18 +169,18 @@ void initialize_uart_per()
   
 	LPC_UART2->LCR = 3; //de-latch
   
-  printf("USART_if ready\n\r");
+  uart2_puts_sys("USART_if ready\n\r");
 }
 
 
 
 
 
-#define BUF_SIZE 128
+#define BUF_SIZE 196
 
 __NO_RETURN void uart_worker(void *argument)
 {
-  const char welcome_msg [] = "UART Ready! Say hiii <3\n\r";
+  const char * welcome_msg = "UART Ready! Hiii <3\n\r";
   uart_printn(welcome_msg);
 	
 	
@@ -210,7 +210,7 @@ __NO_RETURN void uart_worker(void *argument)
 
       // check termination
       char c = in_buffer[idx-1];
-      if (c == '\n' || c == '\r') {
+      if (c == '\n' || c == '\r' || c == '\0') {
     
         if (idx < BUF_SIZE) {
             in_buffer[idx] = '\0'; 
@@ -219,8 +219,17 @@ __NO_RETURN void uart_worker(void *argument)
         }
 		//strcat(in_buffer, "\n\r");
         //upon input -> TODO, put it into serializer, allocate a slab & push to the queue
-        uart_printn(in_buffer); //loopback placeholder
-      
+        //uart_printn(in_buffer); //loopback placeholder
+        
+        if(idx > 3) //ignore commands of just termination chars
+        {
+          Command in_cmd = {
+            .interface = IF_UART,
+            .data_ptr = serialize_command_alloc(in_buffer, NULL)
+          };
+          
+          osMessageQueuePut(in_queue, &in_cmd, NULL, osWaitForever);
+        }
         idx = 0;
         break;
       }
@@ -266,7 +275,13 @@ osStatus_t initialize_uart_int(osMessageQueueId_t in_q, osMessageQueueId_t out_q
     return osErrorResource;  // Failed to create mutex
   }
   
-  if (osThreadNew(uart_worker, NULL, NULL) == NULL) {
+  osThreadAttr_t uart_attr = {
+        .name = "uart_thread",
+        .priority = osPriorityNormal,
+        .stack_size = 320,
+    };
+  
+  if (osThreadNew(uart_worker, NULL, &uart_attr) == NULL) {
     osMutexDelete(uart_if_mtx);
     uart_if_mtx = NULL;
     osEventFlagsDelete(uart_flags);

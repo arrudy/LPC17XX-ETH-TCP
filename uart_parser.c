@@ -73,7 +73,14 @@ int parse_command(const uint8_t * p, char* buffer, size_t max_len) {
     char num_buf[16]; 
 
     // 4. Process Notifications
-    if (category == CAT_SYS_NOTIF) { // 0xF
+    if(category == CAT_SYS_API)
+    {
+        if (sub_cmd == SYS_ETH_MSG) {
+            safe_cat(buffer, "ETH: ", max_len);
+            safe_cat_payload(buffer, payload, payload_len, max_len);
+        }
+    }
+    else if (category == CAT_SYS_NOTIF) { // 0xF
         if (sub_cmd == SYS_NOTIF_UNKNOWN) {
             safe_cat(buffer, "SYS ERR: Unknown Command", max_len);
         }
@@ -116,6 +123,9 @@ int parse_command(const uint8_t * p, char* buffer, size_t max_len) {
             safe_cat(buffer, num_buf, max_len);
         }
     }
+     
+    safe_cat(buffer, "\n\r", max_len);
+    
 
     return 0;
 }

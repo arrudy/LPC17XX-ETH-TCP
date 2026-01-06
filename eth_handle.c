@@ -56,9 +56,9 @@ static u8_t ping_recv(void *arg, struct raw_pcb *pcb,
 
   struct icmp_echo_hdr *iecho;
   char numbuf[12];
-
+  
   if (p->len >= sizeof(struct icmp_echo_hdr)) {
-      iecho = (struct icmp_echo_hdr*)p->payload;
+      iecho = (struct icmp_echo_hdr *)((u8_t *)p->payload + IP_HLEN);
 
       // Check if this is a Reply (Type 0) to a ping WE sent
       if (iecho->type == ICMP_ER) {
@@ -67,11 +67,20 @@ static u8_t ping_recv(void *arg, struct raw_pcb *pcb,
           ETH_DEB(", seq=");
           itoa(lwip_ntohs(iecho->seqno), numbuf, 10);
           ETH_DEB(numbuf);
-          ETH_DEB("\n");
+          ETH_DEB("\n\r");
           
           /* We handled the Reply. Free buffer and return 1 (eaten) */
           pbuf_free(p);
           return 1; 
+      }
+      else if(iecho->type == ICMP_ECHO)
+      {
+        ETH_DEB("Ping request from ");
+        ETH_DEB(ipaddr_ntoa(addr));
+        ETH_DEB(", seq=");
+        itoa(lwip_ntohs(iecho->seqno), numbuf, 10);
+        ETH_DEB(numbuf);
+        ETH_DEB("\n\r");
       }
   }
 
@@ -104,7 +113,7 @@ void ping_send_req_cb(void *arg)
    * If init was skipped, we can technically create it here, 
    * though it's better to rely on ping_raw_init_cb. */
   if (!icmp_pcb) {
-        ETH_DEB("Error: icmp_pcb not initialized. Call ping_raw_init_cb first.\n");
+        ETH_DEB("Error: icmp_pcb not initialized. Call ping_raw_init_cb first.\n\r");
         return;
   }
 
@@ -112,14 +121,14 @@ void ping_send_req_cb(void *arg)
   if (!ipaddr_aton(ip_str, &target_ip)) {
         ETH_DEB("Error: Invalid IP address string: ");
         ETH_DEB(ip_str);
-        ETH_DEB("\n");
+        ETH_DEB("\n\r");
         return;
     }
 
   /* Allocate memory for the ICMP packet */
   p = pbuf_alloc(PBUF_IP, sizeof(struct icmp_echo_hdr), PBUF_RAM);
   if (!p) {
-        ETH_DEB("Error: Failed to allocate pbuf\n");
+        ETH_DEB("Error: Failed to allocate pbuf\n\r");
         return;
   }
 
@@ -141,14 +150,14 @@ void ping_send_req_cb(void *arg)
     ETH_DEB("Failed to send: ");
     itoa(err, numbuf, 16);  // convert error code to string
     ETH_DEB(numbuf);
-    ETH_DEB("\n");
+    ETH_DEB("\n\r");
 } else {
     ETH_DEB("Ping sent to ");
     ETH_DEB(ip_str);
     ETH_DEB(", seq=");
     itoa(ping_seq_num, numbuf, 10); // convert seq number to string
     ETH_DEB(numbuf);
-    ETH_DEB("\n");
+    ETH_DEB("\n\r");
 }
   /* 
    * CRITICAL: Free the pbuf. 
@@ -196,13 +205,13 @@ static void ping_raw_init_cb(void *arg)
   LWIP_UNUSED_ARG(arg);
 
   if (icmp_pcb != NULL) {
-      ETH_DEB("Ping PCB already initialized.\n");
+      ETH_DEB("Ping PCB already initialized.\n\r");
       return;
   }
 
   icmp_pcb = raw_new(IP_PROTO_ICMP);
   if (!icmp_pcb) {
-      ETH_DEB("Ping raw_new failed\n");
+      ETH_DEB("Ping raw_new failed\n\r");
       return;
   }
 
@@ -212,7 +221,7 @@ static void ping_raw_init_cb(void *arg)
   /* Register the receive callback (from our previous discussion) */
   raw_recv(icmp_pcb, ping_recv, NULL);
 
-  ETH_DEB("Ping PCB initialized and listening.\n");
+  ETH_DEB("Ping PCB initialized and listening.\n\r");
   
   /* Optional: Signal your RTOS that init is done */
   osEventFlagsSet(eth_init_flags, PING_INIT_FLAG);
@@ -317,11 +326,13 @@ void status_callback(struct netif *netif)
 {
    if (netif_is_up(netif))
     { 
-      printf("status_callback==UP, local interface IP is %s\n", ip4addr_ntoa(netif_ip4_addr(&gnetif)));
+      ETH_DEB("status_callback==UP, local interface IP is ");
+      ETH_DEB(ip4addr_ntoa(netif_ip4_addr(&gnetif)));
+      ETH_DEB("\n\r");
    }
    else
    {
-       printf("status_callback==DOWN\n");
+      ETH_DEB("status_callback==DOWN\n\r");
    }
 }
 
@@ -329,11 +340,11 @@ void link_callback(struct netif *netif)
 {
    if (netif_is_link_up(netif))
    {
-       printf("link_callback==UP\n");
+       ETH_DEB("link_callback==UP\n\r");
    }
    else
    {
-       printf("link_callback==DOWN\n");
+       ETH_DEB("link_callback==DOWN\n\r");
    }
 }
 
@@ -424,7 +435,7 @@ __NO_RETURN static void eth_init_worker(void *argument)
   err_t err = tcpip_callback(dhcp_start_cb, &gnetif); 
   
   if (err != ERR_OK) {
-    printf("MBOX FULL: %d\n", err); // If this happens, tcpip_thread is definitely stuck
+    printf("MBOX FULL: %d\n\r", err); // If this happens, tcpip_thread is definitely stuck
   }
   
 	//(void)dhcp_start(&gnetif);
@@ -453,9 +464,9 @@ __NO_RETURN static void eth_init_worker(void *argument)
     }
 	
     {
-      char ip_buf[32];
-      sprintf(ip_buf, "FIN IP: %s\n\r", ip4addr_ntoa(netif_ip4_addr(&gnetif)));
-      ETH_DEB(ip_buf);
+      ETH_DEB("FIN IP: ");
+      ETH_DEB(ip4addr_ntoa(netif_ip4_addr(&gnetif)));
+      ETH_DEB("\n\r");
     }
   
   

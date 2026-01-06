@@ -209,7 +209,7 @@ int main(void)
 	osThreadAttr_t main_attr = {
         .name = "main_thread",
         .priority = osPriorityNormal,
-        .stack_size = 512,
+        .stack_size = 448,
     };
 	
     
