@@ -1,61 +1,11 @@
 import asyncio
 import struct
 import serial_asyncio
-from typing import Dict, Callable, Optional, Awaitable
-from dataclasses import dataclass
+from typing import Dict
+
 from common import Device
+from adapters import TcpDevice, UartDevice, RadioDevice
 
-@dataclass
-class TcpDevice(Device):
-    async def send_bytes(self, data: bytes):
-        if not self.connected: raise ConnectionError("Disconnected")
-        self._writer.write(data)
-        await self._writer.drain()
-
-    async def close(self):
-        self.connected = False
-
-        if self._read_task:
-            self._read_task.cancel()
-        
-        try:
-            self._writer.close()
-            await asyncio.wait_for(self._writer.wait_closed(), timeout=0.5)
-        except (asyncio.TimeoutError, asyncio.CancelledError, Exception):
-            pass
-
-@dataclass
-class UartDevice(Device):
-    async def send_bytes(self, data: bytes):
-        if not self.connected: raise ConnectionError("Disconnected")
-        self._writer.write(data)
-        await self._writer.drain()
-
-    async def close(self):
-        self.connected = False
-        if self._read_task:
-            self._read_task.cancel()
-        
-        try:
-            self._writer.close()
-    
-        except: pass
-
-@dataclass
-class RadioDevice(Device):
-    _gateway_writer: asyncio.StreamWriter = None
-    _gateway_lock: asyncio.Lock = None
-
-    async def send_bytes(self, data: bytes):
-        if not self.connected: raise ConnectionError("Disconnected")
-        header = struct.pack('>HH', len(data), self.id)
-        async with self._gateway_lock:
-            self._gateway_writer.write(header + data)
-            await self._gateway_writer.drain()
-
-    async def close(self):
-        self.connected = False
-    
 
 class TransportManager:
     def __init__(self):
@@ -112,7 +62,7 @@ class TransportManager:
             dev._read_task = asyncio.create_task(self._generic_loop(dev, reader))
             
         except Exception as e:
-            print(f"❌ [Transport] Błąd UART {port}: {e}")
+            print(f"[Transport] Błąd UART {port}: {e}")
 
     async def start_radio_gateway(self, port: str, baud: int, label="RADIO"):
         try:
@@ -123,7 +73,7 @@ class TransportManager:
             task = asyncio.create_task(self._radio_loop(reader, writer, gw_lock, label))
             self.gateway_tasks.append(task)
         except Exception as e:
-            print(f"❌ [Transport] Błąd RADIO {port}: {e}")
+            print(f"[Transport] Błąd RADIO {port}: {e}")
 
     async def _generic_loop(self, device: Device, reader: asyncio.StreamReader):
         try:
@@ -131,7 +81,7 @@ class TransportManager:
                 header = await reader.readexactly(4)
                 h_val = int.from_bytes(header, 'big')
                 length = (h_val >> 20) & 0xFFF
-                payload = await reader.readexactly(length)
+                payload = await reader.readexactly(length-4)
                 
                 if self.on_data_received:
                     await self.on_data_received(device, header + payload)
@@ -147,13 +97,13 @@ class TransportManager:
         try:
             while self._running:
                 wrapper = await reader.readexactly(4)
-                inner_len, source_id = struct.unpack('>HH', wrapper)
-                inner_packet = await reader.readexactly(inner_len)
+                length, source_id = struct.unpack('>HH', wrapper)
+                packet = await reader.readexactly(length-4)
             
                 dev = await self._get_radio_device(source_id, label, writer, lock)
                 
                 if self.on_data_received:
-                    await self.on_data_received(dev, inner_packet)
+                    await self.on_data_received(dev, packet)
         except asyncio.CancelledError:
             pass
         except Exception:
@@ -179,6 +129,7 @@ class TransportManager:
                 await self.on_device_disconnected(device)
             return True
         return False
+    
     async def disconnect_all(self):
         async with self._lock:
             active_devices = list(self.devices.values())
@@ -188,7 +139,7 @@ class TransportManager:
     
     
     async def shutdown(self):
-        print("🛑 [Transport] Wymuszanie zatrzymania...")
+        print("[Transport] Wymuszanie zatrzymania...")
         self._running = False
         
         for t in self.gateway_tasks: t.cancel()
@@ -208,7 +159,7 @@ class TransportManager:
             try:
                 await asyncio.wait_for(asyncio.gather(*shutdown_coros, return_exceptions=True), timeout=2.0)
             except asyncio.TimeoutError:
-                print("⚠️ [Transport] Shutdown timeout - niektóre połączenia mogły zostać zerwane siłowo.")
+                print("[Transport] Shutdown timeout - niektóre połączenia mogły zostać zerwane siłowo.")
 
         # 4. Poczekaj na gatewaye
         if self.gateway_tasks:
@@ -216,18 +167,16 @@ class TransportManager:
                 await asyncio.wait_for(asyncio.gather(*self.gateway_tasks, return_exceptions=True), timeout=1.0)
             except asyncio.TimeoutError: pass
 
-        print("🏁 [Transport] Manager wyłączony.")
+        print("[Transport] Manager wyłączony.")
 
-    # ... _handle_disconnect i _get_radio_device bez większych zmian ...
     async def _handle_disconnect(self, device):
-        # Ta metoda jest wołana z finally pętli. 
-        # Device mogło już zostać usunięte w disconnect() lub shutdown().
+
         async with self._lock:
             if device.id in self.devices:
                 del self.devices[device.id]
                 await self._notify_disconnect(device)
         
-        # Upewniamy się że writer jest zamknięty
+
         try:
             device._writer.close()
         except: pass
@@ -245,4 +194,65 @@ class TransportManager:
         if self.on_device_connected: await self.on_device_connected(dev)
         return dev
     
-    
+    async def connect(self, address):
+        if address == "all":
+            await self.connect_all()
+            
+        elif ip_pattern.match(address):
+            await self._connect_via_tcp(address)
+        
+        
+        elif address.upper().startswith("COM"):
+            await self._connect_via_serial(address, "Windows")
+            
+        # 3. Sprawdzenie czy to Linux /dev/
+        elif address.startswith("/dev/"):
+            await self._connect_via_serial(address, "Linux")
+            
+        # 4. Obsługa błędów
+        else:
+            wrong_addr = address
+            raise ValueError
+        print(f"Połączono urządzenie (ID: {address})")
+        
+    async def _connect_tcp(self, host: str, port: int=5000) -> Optional[Device]:
+        "
+        try:
+          
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(host, port), 
+                timeout=5.0
+            )
+            
+            
+            addr_str = f"{host}:{port}"
+            
+            async with self._lock:
+                self._id_counter += 1
+                dev = TcpDevice(
+                    id=self._id_counter,
+                    type="TCP_CLIENT",  # Możemy oznaczyć, że to my zadzwoniliśmy
+                    address=addr_str,
+                    _writer=writer
+                )
+                self.devices[dev.id] = dev
+
+            print(f"[Transport] Połączono z {host}:{port} (ID: {dev.id})")
+
+        
+            if self.on_device_connected:
+                await self.on_device_connected(dev)
+            
+            dev._read_task = asyncio.create_task(self._generic_loop(dev, reader))
+            
+            return dev
+
+        except asyncio.TimeoutError:
+            print(f"[Transport] Timeout połączenia do {host}:{port}")
+            return None
+        except ConnectionRefusedError:
+            print(f"[Transport] Odrzucono połączenie do {host}:{port} (Serwer nie działa?)")
+            return None
+        except Exception as e:
+            print(f"[Transport] Błąd łączenia z {host}:{port}: {e}")
+            return None

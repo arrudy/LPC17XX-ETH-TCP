@@ -1,9 +1,15 @@
 from prompt_toolkit import PromptSession
 from typing import Optional
+import re
+
 
 from common import Device
 from transport import TransportManager
 import protocol
+
+ip_pattern = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
+
+
 
 class MyApplication:
     def __init__(self, transport_manager: TransportManager):
@@ -30,7 +36,7 @@ class MyApplication:
             except ValueError:
                 func_name = f"UNKNOWN({func_code})"
 
-            print(f"[APP] Od {device.id}: [{func_name}] Flags={flags} Msg='{msg_str}'")
+            print(f"[APP] Od {device.id}: [{func_name}] Le={length} Flags={flags} Msg='{msg_str}'")
 
             response_msg = f"ACK {func_name}"
             response_packet = protocol.build_packet(func_code, 0, response_msg)
@@ -57,25 +63,26 @@ class MyApplication:
                         self._handle_list()
                 
                     case "send":
-                        await self._handle_send(parts)
+                        await self._handle_send(parts[1:])
                     case "connect":
                         print("Funkcja connect nie jest zaimplementowana.")
                     case "hi":
                         await self._handle_hi()
                     case "disconnect":
-                        await self._handle_disconnect(parts)
+                        await self._handle_disconnect(parts[1:])
                     case "exit":
                         self.running = False
                         print("Zamykanie aplikacji...")
                     case "help":
-                        print("""
-send    Send message to device.
-        send <client_id> <func_code> <flags> <data>
-disconnect  Disconnect device.
-        disconnect <id> | "all"
-list    List connected devices.
-exit    Stop server.
-""")
+                        print(
+                            """
+                            send    Send message to device.
+                                    send <client_id> <func_code> <flags> <data>
+                            disconnect  Disconnect device.
+                                    disconnect <id> | "all"
+                            list    List connected devices.
+                            exit    Stop server.
+                            """)
                     case _:
                         print("Nieznana komenda.")
 
@@ -98,14 +105,14 @@ exit    Stop server.
                 print(f"{dev.id:<4} {dev.type:<15} {dev.address:<20} {status}")
 
     async def _handle_send(self, parts):
-        if len(parts) < 3:
+        if len(parts) < 2:
             print("Użycie: send <id> <func_code> <message>")
             return
 
         try:
-            target_id = int(parts[1])
-            func_input = parts[2]
-            message = " ".join(parts[3:])
+            target_id = int(parts[0])
+            func_input = parts[1]
+            message = " ".join(parts[2:])
    
             if func_input.isdigit():
                 func_val = int(func_input)
@@ -132,7 +139,7 @@ exit    Stop server.
             print(f"Błąd wysyłania: {e}")
             
     async def _handle_disconnect(self, parts):
-        if len(parts) <2:
+        if len(parts) <1:
             print("Użycie: disconnect <id> | \"all\"")
             return
         try:
@@ -151,25 +158,13 @@ exit    Stop server.
         except Exception as e:
             print(f"Błąd zamknęcia połączenia: {e}")
         
-    # async def _handle_connect(self, parts):
-    #     if len(parts) <2:
-    #         print("Użycie: connect <ip> | <address> | \"all\"")
-    #         return
-    #     try:
-    #         if parts[1] == "all":
-    #             await self.tm.connect_all()
-    #             return
-    #         target_id = int(parts[1])
-                        
-    #         if not await self.tm.connect(target_id):
-    #             print(f"Błąd: Nie ma urządzenia o ID {target_id}")
-    #             return
-    #         print(f"Połączono urządzenie (ID: {target_id})")
-
-    #     except ValueError:
-    #         print("Błąd: ID musi być liczbą.")
-    #     except Exception as e:
-    #         print(f"Błąd zamknęcia połączenia: {e}")
+    async def _handle_connect(self, parts):
+        if len(parts) <1:
+            print("Użycie: connect <ip> | <address>")
+            return        
+    
+        for address in parts:
+            self.tm.connect(address)
         
     async def _handle_hi(self):
         print("Wysyłam HI do wszystkich urządzeń...")

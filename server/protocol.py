@@ -25,14 +25,15 @@ def parse_packet(packet: bytes):
     func_code = (val >> 8) & 0xFFF
     flags = val & 0xFF
     
-    msg_str = payload.decode('utf-8', errors='replace')
+    msg_str = payload.decode('ascii', errors='replace')
     
     return length, func_code, flags, msg_str
 
 def build_packet(func_code: int, flags: int, message: str) -> bytes:
     """Tworzy bajty gotowe do wysłania."""
-    data = message.encode('utf-8')
-    length = len(data)
+    # message+="\0"
+    data = message.encode('ascii')
+    length = len(data) +4
     
     header_int = (length & 0xFFF) << 20
     header_int |= (func_code & 0xFFF) << 8
