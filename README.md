@@ -13,8 +13,9 @@ This project solves common stability issues (Stack Overflows, Hard Faults, and M
 
 *   **Dual Mode TCP:** Seamless switching between Server (Listener) and Client modes.
 *   **Thread-Safe Dispatching:** Uses `tcpip_callback` to offload TX operations to the high-stack lwIP core thread, allowing user threads to remain lightweight.
-*   **Driver-Aligned Buffering:** Optimized `lwipopts.h` configuration specifically tuned for the LPC17xx non-scatter-gather DMA (1536-byte PBUFs).
+*   **Driver-Aligned Buffering:** Optimized `lwipopts.h` configuration specifically tuned for the LPC1768 with limited 32kB + 2x16kB RAM.
 *   **Zero-Copy Logic:** Implements efficient slab allocation and pointer passing to minimize RAM usage on the constrained 32KB boundary.
+*   **Scattering:** Distributes the buffers for heap, pbuffers, stack, Ethernet RX/TX DMA efficiently across the memory space.
 
 ## 🛠️ Build Requirements
 
