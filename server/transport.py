@@ -143,18 +143,14 @@ class TransportManager:
         for t in self.gateway_tasks:
             t.cancel()
 
-        # 2. Pobierz listę urządzeń i od razu wyczyść słownik (żeby uniknąć iterowania po zmieniającym się obiekcie)
+        
         async with self._lock:
             devices_to_kill = list(self.devices.values())
             self.devices.clear()
 
-        # 3. Zabij wszystkie urządzenia RÓWNOLEGLE z timeoutem
-        # gather() uruchomi close() dla wszystkich naraz.
         if devices_to_kill:
             shutdown_coros = [dev.close() for dev in devices_to_kill]
-
-            # WAŻNE: wait_for na wszystkim naraz.
-            # Jeśli cokolwiek się zawiesi, utniemy to po 2 sekundach.
+            
             try:
                 await asyncio.wait_for(
                     asyncio.gather(*shutdown_coros, return_exceptions=True), timeout=2.0
@@ -164,7 +160,6 @@ class TransportManager:
                     "[Transport] Shutdown timeout - niektóre połączenia mogły zostać zerwane siłowo."
                 )
 
-        # 4. Poczekaj na gatewaye
         if self.gateway_tasks:
             try:
                 await asyncio.wait_for(
@@ -221,7 +216,7 @@ class TransportManager:
                 self._id_counter += 1
                 dev = TcpDevice(
                     id=self._id_counter,
-                    type="TCP_CLIENT",  # Możemy oznaczyć, że to my zadzwoniliśmy
+                    type="TCP_CLIENT", 
                     address=addr_str,
                     _writer=writer,
                 )
@@ -290,7 +285,7 @@ class TransportManager:
     
     async def _spam_loop(self, targets: List[Device], packet_factory: Callable[[int], bytes]):
         counter = 0
-        # Robimy lokalną kopię listy, żeby zmiany w mainie nie wywaliły pętli w trakcie iteracji
+       
         active_targets = list(targets) 
         
         try:
@@ -305,18 +300,14 @@ class TransportManager:
                     print("🏁 [Transport] Wszyscy odbiorcy spamu rozłączeni.")
                     break
 
-                # 3. Wyślij równolegle (Gather)
-                # Używamy gather, żeby nie czekać sekwencyjnie na każde urządzenie
                 send_coroutines = [dev.send_bytes(packet) for dev in active_targets]
                 
-                # return_exceptions=True pozwala ignorować błędy pojedynczych wysyłek
+       
                 await asyncio.gather(*send_coroutines, return_exceptions=True)
-                
-                # 4. Czekaj (Tick)
                 await asyncio.sleep(1.0)
                 
         except asyncio.CancelledError:
-            pass # Normalne zatrzymanie
+            pass
         except Exception as e:
             print(f"❌ [Transport] Błąd pętli spamującej: {e}")
         finally:
