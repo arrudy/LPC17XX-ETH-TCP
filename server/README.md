@@ -30,8 +30,14 @@ python main.py
 ```bash
 send    Send message to device.
         send <client_id> <func_code> <flags> <data>
+connect Connect to device.
+        connect <ip> | <address>
 disconnect  Disconnect device.
         disconnect <id> | "all"
 list    List connected devices.
+hi      Send hi message to all devices.
+        hi
+spam    Send spam messages to all devices.
+        spam <id> | "all" | "stop"
 exit    Stop server.
 ```
