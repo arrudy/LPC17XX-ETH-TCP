@@ -19,7 +19,8 @@
 
 
 
-#define ETH_RDY      256U
+#define ETH_MID_INIT  256U
+#define ETH_RDY       512U
 extern osEventFlagsId_t eth_init_flags;
 
 
@@ -28,6 +29,7 @@ extern osEventFlagsId_t eth_init_flags;
 void ping_send_req_cb(void * ip_addr_str);
 
 osStatus_t initialize_eth_int(osMessageQueueId_t in_q, osMessageQueueId_t out_q);
+void tick_ethernet(void);
 
 void initialize_eth_int_fallback(void);
 

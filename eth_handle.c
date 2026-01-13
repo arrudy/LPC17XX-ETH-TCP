@@ -180,19 +180,19 @@ osEventFlagsId_t eth_init_flags;
 
 
 
-
+/*
 static void ping_thread(void *arg)
 {
     LWIP_UNUSED_ARG(arg);
 
     for (;;) {
-        /* Ask TCP/IP thread to send a ping */
+        //Ask TCP/IP thread to send a ping
         tcpip_callback(ping_send_req_cb, "192.168.1.1");
 
-        /* Wait 1 second */
+        //Wait 1 second
         osDelay(1000);
     }
-}
+}*/
 
 
 
@@ -235,9 +235,9 @@ static void ping_raw_init_cb(void *arg)
 
 #ifndef IP_ADDR0
 /* Static IP address */
-#define IP_ADDR0                    192
-#define IP_ADDR1                    168
-#define IP_ADDR2                    1
+#define IP_ADDR0                    10//192
+#define IP_ADDR1                    0//168
+#define IP_ADDR2                    209//1
 #define IP_ADDR3                    96
 #endif
 
@@ -278,6 +278,10 @@ void set_fallback_ip_cb(void *ctx) {
   // Also bring it up if it went down
   netif_set_up(nif); 
   //netif_set_link_up(nif); 
+  
+  if (netif_is_link_up(nif)) {
+      etharp_gratuitous(nif);
+  }
 }
 
 void netif_status_cb(struct netif *netif) {
@@ -312,6 +316,18 @@ static void netw(void *args) {
     UNLOCK_TCPIP_CORE();
     osDelay(1);
   }
+}
+
+
+
+
+
+void tick_ethernet(void)
+{
+  LOCK_TCPIP_CORE();
+  ethernetif_check_link(&gnetif);
+  ethernetif_poll(&gnetif);
+  UNLOCK_TCPIP_CORE();
 }
 
 
@@ -410,13 +426,14 @@ __NO_RETURN static void eth_init_worker(void *argument)
     ETH_DEB("PHY LINK OK\n\r");
   }
   
+  osEventFlagsSet(eth_init_flags, ETH_MID_INIT);
   
-  osThreadAttr_t netw_attr = {
+  /*osThreadAttr_t netw_attr = {
         .name = "netw_thread",
         .priority = osPriorityAboveNormal,
         .stack_size = 512,
     };
-  osThreadNew(netw, &gnetif, &netw_attr);
+  osThreadNew(netw, &gnetif, &netw_attr);*/
 
   
 

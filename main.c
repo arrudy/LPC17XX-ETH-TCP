@@ -91,9 +91,9 @@ osMessageQueueId_t out_q = NULL;
 
 
 
-
-#define POST_INIT 1
-#define RUNNING 2
+#define MID_INIT  1
+#define POST_INIT 2
+#define RUNNING 4
 
 
 
@@ -112,7 +112,7 @@ __NO_RETURN void app_main(void *argument)
 	for(;;)
 	{
 		
-    if(!tick || tick - DiodeTimer > 100)
+    if(!tick || tick - DiodeTimer > 500)
     {
       led_state = !led_state; //? 0 : 1;
       if(led_state) LED_On(3);
@@ -125,28 +125,40 @@ __NO_RETURN void app_main(void *argument)
     {
       case 0:
       {
-        uint32_t flag_res = osEventFlagsWait(eth_init_flags, ETH_RDY, osFlagsWaitAll, 0);
+        uint32_t flag_res = osEventFlagsWait(eth_init_flags, ETH_MID_INIT, osFlagsWaitAll, 0);
         
-        if( !(flag_res & 1<<31) && (flag_res & ETH_RDY)) state = POST_INIT;
-        else{  osDelay(500); }
+        if( !(flag_res & 1<<31) && (flag_res & ETH_MID_INIT)) state = MID_INIT;
+        else{ tick+=250;  osDelay(200); }
           
       }
       break;
-      case 1:
+      case MID_INIT:
+      {
+        uint32_t flag_res = osEventFlagsWait(eth_init_flags, ETH_RDY, osFlagsWaitAll, 0);
+        
+        if( !(flag_res & 1<<31) && (flag_res & ETH_RDY)) state = POST_INIT;
+        else{ tick_ethernet(); tick+=2; osDelay(4); }
+          
+      }
+      break;
+      case POST_INIT:
       {
         (void)initialize_uart_int(in_q, out_q);
         (void)init_pipeline(in_q, out_q);
         //(void)init_if_dispatcher(out_q); //we ran out of memory :(
         state = RUNNING;
-        osDelay(1000);
+        tick_ethernet();
+        osDelay(4);
       }
       break;
       default:
         //tcpip_callback(ping_send_req_cb, "192.168.1.1");
       
-        tick_dispatcher(out_q);
-        osDelay(10);
+        if(tick%5) tick_dispatcher(out_q);
+        tick_ethernet();
+        
         tick+=1;
+        osDelay(2);
       break;
     }
     
@@ -209,7 +221,7 @@ int main(void)
 	osThreadAttr_t main_attr = {
         .name = "main_thread",
         .priority = osPriorityNormal,
-        .stack_size = 448,
+        .stack_size = 1024//448,
     };
 	
     
