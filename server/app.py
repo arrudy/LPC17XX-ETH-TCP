@@ -4,6 +4,7 @@ import re, os , random
 from common import Device
 from transport import TransportManager
 import protocol
+from usecases import func_runner
 
 ip_pattern = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
 
@@ -39,19 +40,17 @@ class MyApplication:
             print(
                 f"[APP] Od {device.id}: [{func_name}] Le={length} Flags={flags} Msg='{msg_str}'"
             )
-
-            response_msg = f"ACK {func_name}"
-            response_packet = protocol.build_packet(func_code, 0, response_msg)
-
-            await device.send_bytes(response_packet)
+            
+            send = func_runner(msg_str.lower())
+            if send:
+                packet = protocol.build_packet(0x301, 0, send)
+                await device.send_bytes(packet)
 
         except Exception as e:
             print(f"[APP] Błąd przetwarzania wiadomości od {device.id}: {e}")
 
     async def run_console(self):
         session = PromptSession()
-        print("=== SYSTEM GOTOWY ===")
-        print("Komendy: list, send <id> <func> <msg>, exit")
 
         while self.running:
             try:
@@ -130,7 +129,6 @@ class MyApplication:
                     func_val = protocol.FuncCode[func_input.upper()].value
                 except KeyError:
                     print(f"Nieznany kod funkcji: {func_input}")
-                    print(f"Dostępne: {[f.name for f in protocol.FuncCode]}")
                     return
 
             device = self.tm.devices.get(target_id)
@@ -186,55 +184,22 @@ class MyApplication:
             except Exception as e:
                 print(f"Błąd wysyłania HI do {device.id}: {e}")
     
-    async def _handle_spam(self, parts):
-        if len(parts) < 1:
-            print('Użycie: spam <id> | "all" | "stop"')
-            return
-
-        targets = set()
-        if parts[0] == "all":
-            targets = list(self.tm.devices.values())
-        else:
-            try:
-                for part in parts:
-                    with self.tm._lock:
-                        if part in self.tm.devices.keys():
-                            device = self.tm.devices[part]
-                            targets.append(device)
-                        else:
-                            print(f"Błąd: Nie ma urządzenia o ID {part}")
-            except ValueError:
-                print("Błąd: ID musi być liczbą.")
-                return
-
-        print(f"Wysyłam SPAM do {len(targets)} urządzeń...")
-        
-        while targets is not set():
-            for device in targets:
-                try:
-                    for i in range(5):  # Wysyła 5 wiadomości spam
-                        packet = protocol.build_packet(0x302, 0, f"SPAM {i+1}")
-                        await device.send_bytes(packet)
-                except Exception as e:
-                    print(f"Błąd wysyłania SPAM do {device.id}: {e}")
-
             
     async def _handle_spam(self, parts):
 
         cmd = parts[0].lower()
 
-        # 1. STOP
         if cmd == "stop":
             await self.tm.stop_spam_job()
             return
 
-        # 2. ZBIERANIE CELÓW
+
         targets = []
         if cmd == "all":
-            # Kopia aktualnej listy urządzeń
+
             targets = list(self.tm.devices.values())
         else:
-            # Parsowanie ID
+
             for raw_id in parts[0:]:
                 try:
                     tid = int(raw_id)
@@ -253,7 +218,7 @@ class MyApplication:
             return
 
         try:
-            with open(filename, "r", encoding="utf-8") as f:
+            with open(filename, "r", encoding="ascii") as f:
                
                 lines = [line.strip() for line in f if line.strip()]
             
@@ -266,9 +231,9 @@ class MyApplication:
             print(f"❌ Błąd odczytu pliku: {e}")
             return
 
-        def make_spam_packet(counter: int) -> bytes:
+        def make_spam_packet() -> bytes:
             text = random.choice(lines)
             
-            return protocol.build_packet(0x104, 0, text)
+            return protocol.build_packet(0x301, 0, text)
 
         await self.tm.start_spam_job(targets, make_spam_packet)

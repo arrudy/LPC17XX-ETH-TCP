@@ -2,7 +2,7 @@ import asyncio
 import re
 import struct
 import serial_asyncio
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Callable
 
 from common import Device
 from adapters import TcpDevice, UartDevice, RadioDevice
@@ -292,7 +292,7 @@ class TransportManager:
             while self._spam_running and active_targets:
                 counter += 1
                 
-                packet = packet_factory(counter)
+                packet = packet_factory()
                 
                 active_targets = [d for d in active_targets if d.connected]
                 
