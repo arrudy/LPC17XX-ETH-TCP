@@ -56,7 +56,10 @@ class TransportManager:
             async with self._lock:
                 self._id_counter += 1
                 dev = UartDevice(
-                    id=self._id_counter, type=label, address=port, _writer=writer
+                    id=self._id_counter, 
+                    type=label, 
+                    address=port, 
+                    _writer=writer
                 )
                 self.devices[dev.id] = dev
 
@@ -100,6 +103,12 @@ class TransportManager:
                 pass
             self._spam_task = None
             print("🛑 [Transport] SPAM task zatrzymany.")
+    
+    async def send_to_device(self, device_id: int, data: bytes):
+        async with self._lock:
+            device = self.devices.get(device_id)
+        if device:
+            await device.send_bytes(data)
     
     async def connect(self, address):
 
@@ -277,11 +286,7 @@ class TransportManager:
         except Exception:
             pass
 
-    async def send_to_device(self, device_id: int, data: bytes):
-        async with self._lock:
-            device = self.devices.get(device_id)
-        if device:
-            await device.send_bytes(data)
+    
     
     async def _spam_loop(self, targets: List[Device], packet_factory: Callable[[int], bytes]):
         counter = 0

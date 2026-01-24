@@ -33,7 +33,7 @@ def parse_packet(packet: bytes):
 
 def build_packet(func_code: int, flags: int, message: str) -> bytes:
     """Tworzy bajty gotowe do wysłania."""
-    # message+="\0"
+    
     data = message.encode("ascii")
     length = len(data) + 4
 

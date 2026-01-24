@@ -4,7 +4,10 @@ import re, os , random
 from common import Device
 from transport import TransportManager
 import protocol
-from usecases import func_runner
+
+def make_spam_packet(lines) -> bytes:
+    text = random.choice(lines)
+    return protocol.build_packet(0x301, 0, text)
 
 ip_pattern = re.compile(r"^(\d{1,3}\.){3}\d{1,3}$")
 
@@ -40,12 +43,9 @@ class MyApplication:
             print(
                 f"[APP] Od {device.id}: [{func_name}] Le={length} Flags={flags} Msg='{msg_str}'"
             )
-            
-            send = func_runner(msg_str.lower())
-            if send:
-                packet = protocol.build_packet(0x301, 0, send)
-                await device.send_bytes(packet)
 
+            await self._message_handler(msg_str.lower(), device)
+            
         except Exception as e:
             print(f"[APP] Błąd przetwarzania wiadomości od {device.id}: {e}")
 
@@ -138,6 +138,7 @@ class MyApplication:
 
             packet = protocol.build_packet(func_val, 0, message)
             await device.send_bytes(packet)
+            self._send(device,message,func_val = func_val)
             print(f"✅ Wysłano do {device.type} (ID: {target_id})")
 
         except ValueError:
@@ -178,13 +179,29 @@ class MyApplication:
 
         for device in self.tm.devices.values():
             try:
-                packet = protocol.build_packet(0x302, 0, "HI")
-                await device.send_bytes(packet)
+                self._send(device, "HI")
                 print(f"✅ Wysłano HI do {device.type} (ID: {device.id})")
             except Exception as e:
                 print(f"Błąd wysyłania HI do {device.id}: {e}")
     
-            
+    async def _send_ad(self, device: Device):
+        filename = "spam.txt"
+        if not os.path.exists(filename):
+            print(f"❌ Błąd: Nie znaleziono pliku '{filename}'")
+            return
+        try:
+            with open(filename, "r", encoding="ascii") as f:
+                lines = [line.strip() for line in f if line.strip()]
+            if not lines:
+                print("⚠️ Plik jest pusty!")
+                return
+            await device.send_bytes(make_spam_packet(lines=lines))
+        except Exception as e:
+                print(f"Błąd wysyłania reklam do {device.id}: {e}")
+        except Exception as e:
+            print(f"❌ Błąd odczytu pliku: {e}")
+            return
+        
     async def _handle_spam(self, parts):
 
         cmd = parts[0].lower()
@@ -230,10 +247,42 @@ class MyApplication:
         except Exception as e:
             print(f"❌ Błąd odczytu pliku: {e}")
             return
+        def spam_factory():
+            return make_spam_packet(lines=lines)
+        
 
-        def make_spam_packet() -> bytes:
-            text = random.choice(lines)
+        await self.tm.start_spam_job(targets, spam_factory)
+        
+    async def _message_handler(self, func_code, device: Device):
+        send_back = None
+        match func_code:
+            case "getrandom\0":
+                send_back = str(random.randint(0,10))
+            case "ta energy\0":
+                send_back = str(device.get_energy())
+            case "ta casino\0":
+                energy = device.get_energy()
+                if energy<2:
+                    send_back = "Za malo energii na hazard poogladaj reklame"
+                else:    
+                    l1 = random.randint(2,10)
+                    l2 = random.randint(2,10)
+                    l3 = random.randint(2,10)
+                    if l1 == l2 and l1 == l2:
+                        device.refill_energy(l1-2)
+                    else:
+                        device.refill_energy(-2)
+                    send_back = str(f"||{l1}|{l2}|{l3}||  E={energy}" )
+            case "ta ad\0":
+                device.refill_energy(1)
+                self._send_ad(device)
+                            
+            case _:
+                pass        
+        
+        if send_back:
+            self._send(device, send_back)
             
-            return protocol.build_packet(0x301, 0, text)
-
-        await self.tm.start_spam_job(targets, make_spam_packet)
+    async def _send(device: Device, msg: str, func_val =0x301):
+        packet = protocol.build_packet(func_val, 0, msg)
+        await device.send_bytes(packet)

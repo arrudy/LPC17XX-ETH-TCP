@@ -4,9 +4,8 @@ import struct
 
 from common import Device
 
-
 @dataclass
-class TcpDevice(Device):
+class Uart_TcpDevice(Device):
     async def send_bytes(self, data: bytes):
         if not self.connected: raise ConnectionError("Disconnected")
         self._writer.write(data)
@@ -14,32 +13,21 @@ class TcpDevice(Device):
 
     async def close(self):
         self.connected = False
-
         if self._read_task:
             self._read_task.cancel()
-        
         try:
             self._writer.close()
             await asyncio.wait_for(self._writer.wait_closed(), timeout=0.5)
         except (asyncio.TimeoutError, asyncio.CancelledError, Exception):
-            pass
+                pass
 
 @dataclass
-class UartDevice(Device):
-    async def send_bytes(self, data: bytes):
-        if not self.connected: raise ConnectionError("Disconnected")
-        self._writer.write(data)
-        await self._writer.drain()
+class TcpDevice(Uart_TcpDevice):
+    pass
 
-    async def close(self):
-        self.connected = False
-        if self._read_task:
-            self._read_task.cancel()
-        
-        try:
-            self._writer.close()
-    
-        except: pass
+@dataclass
+class UartDevice(Uart_TcpDevice):
+    pass
 
 @dataclass
 class RadioDevice(Device):
@@ -55,4 +43,11 @@ class RadioDevice(Device):
 
     async def close(self):
         self.connected = False
+        if self._read_task:
+            self._read_task.cancel()
+        try:
+            self._writer.close()
+            await asyncio.wait_for(self._writer.wait_closed(), timeout=0.5)
+        except (asyncio.TimeoutError, asyncio.CancelledError, Exception):
+                pass
     
