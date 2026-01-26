@@ -1,0 +1,98 @@
+import asyncio
+import sys
+from transport import TransportManager
+from app import MyApplication
+
+
+import sys
+import asyncio
+
+PLATFORM_CONFIGS = {
+    "linux": [
+        ("TCP", None, "0.0.0.0", 5000, "ETHERNET"),
+        ("SERIAL", "GATEWAY", "/dev/ttyUSB0", 115200, "RADIO_802.15.4"),
+        ("SERIAL", "DIRECT", "/dev/ttyS0", 115200, "UART_WIRED"),
+    ],
+    "win32": [
+        ("TCP", None, "0.0.0.0", 5000, "ETHERNET"),
+        ("SERIAL", "GATEWAY", "COM3", 115200, "RADIO_802.15.4"),
+        ("SERIAL", "DIRECT", "COM7", 115200, "UART_WIRED"),
+    ],
+    "darwin": [
+        ("TCP", None, "0.0.0.0", 5000, "ETHERNET"),
+        ("SERIAL", "GATEWAY", "/dev/cu.usbserial-xxx", 115200, "RADIO"),
+        ("SERIAL", "DIRECT", "/dev/cu.usbmodem-xxx", 115200, "UART"),
+    ],
+}
+
+current_platform = sys.platform
+
+
+CONFIG = PLATFORM_CONFIGS.get(current_platform, PLATFORM_CONFIGS["linux"])
+
+
+async def main():
+    print("--- START SYSTEMU ---")
+    tm = TransportManager()
+
+    app = MyApplication(tm)
+
+    active_servers = []
+
+    for item in CONFIG:
+        trans_type, sub_type, addr, port_baud, label = item
+
+        try:
+            if trans_type == "TCP":
+                srv = await tm.start_tcp(addr, port_baud)
+                active_servers.append(srv)
+
+            elif trans_type == "SERIAL":
+                if sub_type == "GATEWAY":
+
+                    await tm.start_radio_gateway(addr, port_baud, label=label)
+                else:
+
+                    await tm.start_direct_uart(addr, port_baud, label=label)
+
+        except (FileNotFoundError, OSError) as e:
+            print(f"[OSTRZEŻENIE] Nie udało się uruchomić {label} ({addr}): {e}")
+        except Exception as e:
+            print(f"[BŁĄD KRYTYCZNY] {label}: {e}")
+
+    print("\nSystem gotowy. Uruchamiam konsolę...")
+
+    try:
+        await app.run_console()
+    finally:
+        print("\n--- ZAMYKANIE ---")
+
+        print("1. Zamykanie nasłuchiwania TCP...")
+        if active_servers:
+
+            for srv in active_servers:
+                srv.close()
+
+            try:
+                wait_tasks = [srv.wait_closed() for srv in active_servers]
+                await asyncio.wait_for(asyncio.gather(*wait_tasks), timeout=2.0)
+            except asyncio.TimeoutError:
+                print("[Main] Timeout: Serwery TCP zamykane siłowo.")
+            except Exception as e:
+                print(f"[Main] Błąd przy zamykaniu serwerów: {e}")
+
+        print("2. Wyłączanie TransportManagera...")
+
+        try:
+            await asyncio.wait_for(tm.shutdown(), timeout=5.0)
+        except asyncio.TimeoutError:
+            print("[Main] Timeout: Manager transportu zamykany siłowo.")
+
+        print("Do widzenia.")
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

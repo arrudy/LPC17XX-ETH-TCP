@@ -1,0 +1,23 @@
+/* nordic/app.overlay */
+/ {
+	chosen {
+		/* Usuwamy konsolę z UART0, żeby zwolnić go dla danych */
+		/delete-property/ zephyr,console;
+		/delete-property/ zephyr,shell-uart;
+		/delete-property/ zephyr,uart-mcumgr;
+	};
+};
+
+/* UART0 - Dane/Ethernet (Górny port J-Link) */
+&uart0 {
+	status = "okay";
+	current-speed = <115200>;
+};
+
+/* USB CDC - Konsola Użytkownika (Boczny port nRF USB) */
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+		label = "CDC_ACM_0";
+	};
+};
