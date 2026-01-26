@@ -138,7 +138,7 @@ class MyApplication:
 
             packet = protocol.build_packet(func_val, 0, message)
             await device.send_bytes(packet)
-            self._send(device,message,func_val = func_val)
+            await self._send(device,message,func_val = func_val)
             print(f"✅ Wysłano do {device.type} (ID: {target_id})")
 
         except ValueError:
@@ -179,7 +179,7 @@ class MyApplication:
 
         for device in self.tm.devices.values():
             try:
-                self._send(device, "HI")
+                await self._send(device, "HI")
                 print(f"✅ Wysłano HI do {device.type} (ID: {device.id})")
             except Exception as e:
                 print(f"Błąd wysyłania HI do {device.id}: {e}")
@@ -275,14 +275,14 @@ class MyApplication:
                     send_back = str(f"||{l1}|{l2}|{l3}||  E={energy}" )
             case "ta ad\0":
                 device.refill_energy(1)
-                self._send_ad(device)
+                await self._send_ad(device)
                             
             case _:
                 pass        
         
         if send_back:
-            self._send(device, send_back)
+            await self._send(device, send_back)
             
-    async def _send(device: Device, msg: str, func_val =0x301):
+    async def _send(self, device: Device, msg: str, func_val =0x301):
         packet = protocol.build_packet(func_val, 0, msg)
         await device.send_bytes(packet)
