@@ -154,7 +154,7 @@ __NO_RETURN void app_main(void *argument)
       default:
         //tcpip_callback(ping_send_req_cb, "192.168.1.1");
       
-        if(tick%5) tick_dispatcher(out_q);
+        if(tick%5) tick_dispatcher(in_q,out_q);
         tick_ethernet();
         
         tick+=1;

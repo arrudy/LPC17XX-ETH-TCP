@@ -426,6 +426,8 @@ __NO_RETURN static void eth_init_worker(void *argument)
     ETH_DEB("PHY LINK OK\n\r");
   }
   
+  ethernetif_check_link(&gnetif);
+  
   osEventFlagsSet(eth_init_flags, ETH_MID_INIT);
   
   /*osThreadAttr_t netw_attr = {

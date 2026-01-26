@@ -3,6 +3,7 @@
 #include "command.h"    // User header
 #include "slab_alloc.h" // User header
 #include "tcp_server.h"
+#include "uart_handle.h"
 
 // --- GLOBAL STATE ---
 static osMessageQueueId_t g_in_q = NULL;
@@ -314,6 +315,8 @@ int8_t tcp_mode_server_defer(void)
     if (flags & 0x80000000U) {
         return -5; // Error
     }
+    
+    uart2_puts_sys("Listener mode\n\r");
 
     return 0; // Success
 }
@@ -398,6 +401,9 @@ int8_t tcp_srv_send_data_defer(void *data)
     if (flags & 0x80000000U) {
         return -5; // OS Error (Timeout or Resource invalid)
     }
+    
+    if(!volatile_send_status)
+      uart2_puts_sys("Data sent\n\r");
 
     // 4. Return the status set by the callback
     return volatile_send_status;
@@ -559,6 +565,9 @@ int8_t tcp_mode_client_defer(ip_addr_t *target_ip, uint16_t port)
     if (flags & 0x80000000U) {
         return -5; // OS Timeout/Error
     }
+    
+    if(!volatile_tcp_conn)
+      uart2_puts_sys("Active mode reqested\n\r");
 
     // 5. Return Result
     return volatile_tcp_conn;

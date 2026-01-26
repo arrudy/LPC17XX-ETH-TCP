@@ -8,6 +8,7 @@
 #include "tcp_server.h"
 
 static osMessageQueueId_t out_queue; //where from the packets are taken
+static osMessageQueueId_t in_queue;
 
 __NO_RETURN static void dispatcher_worker(void *argument)
 {
@@ -40,13 +41,15 @@ __NO_RETURN static void dispatcher_worker(void *argument)
 
 
 
-osStatus_t tick_dispatcher(osMessageQueueId_t out_q)
+osStatus_t tick_dispatcher(osMessageQueueId_t in_q, osMessageQueueId_t out_q)
 {
   Command cmd;
 
   for(int i =0; i < 2; ++i){
     osStatus_t result = osMessageQueueGet(out_q, &cmd, NULL, 0);
     if(result != osOK) return result;
+    
+    
     
     if(cmd.interface & IF_UART)
     {
@@ -67,8 +70,13 @@ osStatus_t tick_dispatcher(osMessageQueueId_t out_q)
         uart2_puts_sys("!ERR unknown TCP error\n\r");
       //push to interface
     }
+    if(cmd.interface & IF_INTERNAL) //feed back, do not free
+    {
+      osMessageQueuePut(in_queue, &cmd, NULL, osWaitForever);
+    }
     
-    slab_free(cmd.data_ptr);
+    if( !(cmd.interface & IF_INTERNAL)) //do not free if targeted to internal
+      slab_free(cmd.data_ptr);
   }
   
   
@@ -76,7 +84,7 @@ osStatus_t tick_dispatcher(osMessageQueueId_t out_q)
 }
 
 
-osStatus_t init_if_dispatcher(osMessageQueueId_t out_q)
+osStatus_t init_if_dispatcher(osMessageQueueId_t in_q, osMessageQueueId_t out_q)
 {
   // Validate parameters
     if ( out_q == NULL) {
@@ -84,6 +92,7 @@ osStatus_t init_if_dispatcher(osMessageQueueId_t out_q)
     }
 
     out_queue = out_q;
+    in_queue = in_q;
 
     // Fully initialize thread attributes
     const osThreadAttr_t disp_attr = {
