@@ -16,6 +16,8 @@ int8_t tcp_mode_client_defer(ip_addr_t *target_ip, uint16_t port);
 int8_t tcp_srv_send_data(void *data);
 int8_t tcp_srv_send_data_defer(void *data);
 
+char * tcp_report_state(void);
+
 //standalone, creates own thread
 void initialize_tcp_srv(osMessageQueueId_t i_q);
 

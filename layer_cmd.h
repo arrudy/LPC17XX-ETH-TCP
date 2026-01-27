@@ -90,6 +90,11 @@ int process_request_cmd(Command * cmd)
        //tcp_srv_send_data_defer(cmd->data_ptr); //fallback
       }
      break;
+     case SYS_LIST_N:
+      {
+        uart_printn( tcp_report_state());
+      }
+     break;
     }
     break;
     case CAT_SYS_API:

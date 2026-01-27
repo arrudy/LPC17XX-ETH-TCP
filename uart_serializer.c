@@ -21,6 +21,7 @@ static const CommandEntry CMD_TABLE[] = {
     { "neighbor", "connect", NULL,   (CAT_SYSTEM<<8)|SYS_CONN,     { ARG_IP, ARG_END } },
     { "neighbor", "disconnect", NULL,(CAT_SYSTEM<<8)|SYS_DISCONN,  { ARG_END } },
     { "neighbor", "send", NULL,      (CAT_SYSTEM<<8)|SYS_RAW_SEND, { ARG_STR, ARG_END } },
+    { "neighbor", "list", NULL,      (CAT_SYSTEM<<8)|SYS_LIST_N,   { ARG_END } },
     //{ "self", "state", NULL,         (CAT_SIM<<8)|0x01,            { ARG_END } },
     //{ "self", "sleep", NULL,         (CAT_SIM<<8)|0x02,            { ARG_INT, ARG_END } },
     //{ "food", "list", NULL,          (CAT_SIM<<8)|0x03,            { ARG_END } },

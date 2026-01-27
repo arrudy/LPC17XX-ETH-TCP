@@ -322,6 +322,34 @@ int8_t tcp_mode_server_defer(void)
 }
 
 
+char * tcp_report_state(void)
+{
+  static char buf [64] = "";
+  buf[0] = '\0';
+  
+  LOCK_TCPIP_CORE();
+  if (current_pcb != NULL)
+  {
+    strncat(buf, ipaddr_ntoa(&current_pcb->remote_ip), sizeof(buf)/sizeof(*buf));
+    strncat(buf, ":", 2);
+    itoa( current_pcb->remote_port, buf+strlen(buf), 10);
+  }
+  else if(server_pcb != NULL)
+  {
+    strncat(buf, "Listening", sizeof(buf)/sizeof(*buf) );
+  }
+  else{
+    strncat(buf, "Invalid", sizeof(buf)/sizeof(*buf));
+  }
+  
+  strncat(buf, "\n\r", sizeof(buf)/sizeof(*buf));
+  
+
+  UNLOCK_TCPIP_CORE();
+  return buf;
+}
+
+
 
 
 /**

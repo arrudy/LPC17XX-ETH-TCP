@@ -36,7 +36,7 @@
 #define SYS_CONN     0x02 //payload: str(ip)
 #define SYS_DISCONN  0x03 //payload: None
 #define SYS_RAW_SEND 0x04 //payload: str(any), uart->eth
-
+#define SYS_LIST_N   0x05 //payload: None
 
 // System API commands (0x3)
 #define SYS_ETH_MSG  0x01 //payload: str(any), eth->uart
